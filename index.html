@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Brick Breaker</title>
+    <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
+    <style>
+        /* ── Reset & Layout ─────────────────────────────────── */
+        *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+        html, body {
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            background: #000;
+        }
+
+        #game-container {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            width: 100%;
+            height: 100%;
+            max-width: 100vw;
+            max-height: 100vh;
+        }
+
+        canvas {
+            image-rendering: pixelated;
+            image-rendering: crisp-edges;
+            touch-action: none;
+        }
+
+        /* ── CRT Scanline Overlay ───────────────────────────── */
+        #game-container::after {
+            content: '';
+            position: fixed;
+            inset: 0;
+            pointer-events: none;
+            background: repeating-linear-gradient(
+                0deg,
+                rgba(0, 0, 0, 0.15) 0px,
+                rgba(0, 0, 0, 0.15) 1px,
+                transparent 1px,
+                transparent 3px
+            );
+            z-index: 10;
+        }
+
+        /* ── Vignette ──────────────────────────────────────── */
+        #game-container::before {
+            content: '';
+            position: fixed;
+            inset: 0;
+            pointer-events: none;
+            background: radial-gradient(
+                ellipse at center,
+                transparent 50%,
+                rgba(0, 0, 0, 0.5) 100%
+            );
+            z-index: 11;
+        }
+    </style>
+</head>
+<body>
+    <div id="game-container"></div>
+    <script type="module" src="/src/main.js"></script>
+</body>
+</html>
