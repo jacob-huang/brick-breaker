@@ -22,6 +22,15 @@ npm test             # Run Playwright tests
 npm run test:ui      # Run Playwright tests with UI mode
 ```
 
+To expose the dev server to your network (e.g., phone on same WiFi):
+```bash
+npx vite --host
+# or
+npm run dev -- --host
+```
+
+The `--` separates npm flags from script flags. Without it, npm tries to interpret `--host` as its own config and warns. With `--host`, Vite binds to `0.0.0.0` instead of `127.0.0.1`, showing a `Network:` URL in the output. To make this permanent, set `host: true` in `vite.config.js` under `server`.
+
 To run a single test file:
 ```bash
 npx playwright test tests/brick-breaker.spec.cjs -g "name of test"
