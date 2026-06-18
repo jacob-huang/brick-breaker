@@ -538,8 +538,8 @@ export class GameScene extends Phaser.Scene {
                     if (this.aabbBallBrick(ball, brick)) {
                         brick.active = false;
                         this.reflectBallOffBrick(ball, brick);
-                        this.score += brick.points * this.combo;
                         this.onBrickHit();
+                        this.score += brick.points * this.combo;
                         this.spawnParticles(brick.x, brick.y, brick.color);
                         this.spawnPowerup(brick.x, brick.y);
                         this.audio.play('brick');
