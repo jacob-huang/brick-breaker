@@ -92,46 +92,6 @@ export class BootScene extends Phaser.Scene {
         paddleCtx.fillRect(0, 0, 100, 12);
         this.textures.addCanvas('paddle', paddleCanvas);
 
-        // ── Generate gradient paddle textures (fire, ice, rainbow) at two widths ──
-        const PADDLE_GRADIENTS = [
-            { name: 'paddle_fire',    colors: ['#ff4400', '#ff8800'], w: 100 },
-            { name: 'paddle_fire_w',  colors: ['#ff4400', '#ff8800'], w: 160 },
-            { name: 'paddle_ice',     colors: ['#00ccff', '#88eeff'], w: 100 },
-            { name: 'paddle_ice_w',   colors: ['#00ccff', '#88eeff'], w: 160 },
-            { name: 'paddle_rainbow', colors: ['#ff0000', '#00ff00'], w: 100 },
-            { name: 'paddle_rainbow_w', colors: ['#ff0000', '#00ff00'], w: 160 },
-        ];
-        PADDLE_GRADIENTS.forEach(p => {
-            const c = document.createElement('canvas');
-            c.width = p.w;
-            c.height = 12;
-            const ctx = c.getContext('2d');
-            const grad = ctx.createLinearGradient(0, 0, p.w, 0);
-            grad.addColorStop(0, p.colors[0]);
-            grad.addColorStop(1, p.colors[1]);
-            ctx.fillStyle = grad;
-            ctx.fillRect(0, 0, p.w, 12);
-            this.textures.addCanvas(p.name, c);
-        });
-
-        // ── Generate rainbow ball gradient texture (16×16 circle) ──
-        const rainbowBallCanvas = document.createElement('canvas');
-        rainbowBallCanvas.width = 16;
-        rainbowBallCanvas.height = 16;
-        const rbCtx = rainbowBallCanvas.getContext('2d');
-        const rbGrad = rbCtx.createLinearGradient(8, 0, 8, 16);
-        rbGrad.addColorStop(0, '#ff0000');
-        rbGrad.addColorStop(0.2, '#ff8800');
-        rbGrad.addColorStop(0.4, '#ffff00');
-        rbGrad.addColorStop(0.6, '#00ff00');
-        rbGrad.addColorStop(0.8, '#0088ff');
-        rbGrad.addColorStop(1, '#8800ff');
-        rbCtx.beginPath();
-        rbCtx.arc(8, 8, 7, 0, Math.PI * 2);
-        rbCtx.fillStyle = rbGrad;
-        rbCtx.fill();
-        this.textures.addCanvas('ball_rainbow', rainbowBallCanvas);
-
         // ── Generate heart texture for HUD ──
         const heartCanvas = document.createElement('canvas');
         heartCanvas.width = 16;

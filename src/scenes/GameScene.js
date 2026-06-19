@@ -48,9 +48,9 @@ const BRICK_DEFS = [
 // ── Paddle Skins ───────────────────────────────────────────────────
 const PADDLE_SKINS = {
     default: { color: '#00ccff', wideColor: '#00ffcc', glow: true },
-    fire:    { color: '#ff4400', wideColor: '#ff8800', glow: true, gradient: true },
-    ice:     { color: '#00ccff', wideColor: '#88eeff', glow: true, gradient: true },
-    rainbow: { color: '#ff0000', wideColor: '#00ff00', glow: true, gradient: true },
+    fire:    { color: '#ff4400', wideColor: '#ff8800', glow: true },
+    ice:     { color: '#00ccff', wideColor: '#88eeff', glow: true },
+    rainbow: { color: '#ff00ff', wideColor: '#00ffff', glow: true },
 };
 
 // ── Ball Skins ─────────────────────────────────────────────────────
@@ -58,7 +58,7 @@ const BALL_SKINS = {
     default: { glowColor: 0xffffff, ballColor: 0x88aaff, trailColor: 0x88aaff },
     fire:    { glowColor: 0xff6600, ballColor: 0xff4400, trailColor: 0xff4400 },
     ice:     { glowColor: 0x88ffff, ballColor: 0x00ccdd, trailColor: 0x00ccdd },
-    rainbow: { glowColor: 0xffffff, ballColor: 0xffffff, trailColor: 0xffffff, gradient: true },
+    rainbow: { glowColor: 0xffffff, ballColor: 0xff66ff, trailColor: 0xff66ff },
 };
 
 // Power-up types
@@ -380,20 +380,13 @@ export class GameScene extends Phaser.Scene {
         const x = this.paddleX - this.paddleWidth / 2;
         const y = PADDLE_Y - PADDLE_H / 2;
 
-        // Gradient fills for fire, ice, rainbow — use pre-rendered textures
-        if (skin.gradient) {
-            const isWide = this.paddleWidth > PADDLE_W;
-            const texName = `paddle_${this.paddleSkin}${isWide ? '_w' : ''}`;
-            this.paddleGfx.fillTexture(this.textures.get(texName), x, y, this.paddleWidth, PADDLE_H);
-        } else {
-            const c = Phaser.Display.Color.HexStringToColor(color);
-            this.paddleGfx.fillStyle(c.color, 1);
-            this.paddleGfx.fillRoundedRect(x, y, this.paddleWidth, PADDLE_H, 4);
-        }
+        // Solid fill — Phaser Graphics CANVAS does not support gradients
+        const c = Phaser.Display.Color.HexStringToColor(color);
+        this.paddleGfx.fillStyle(c.color, 1);
+        this.paddleGfx.fillRoundedRect(x, y, this.paddleWidth, PADDLE_H, 4);
 
         // Glow border
         if (skin.glow) {
-            const c = Phaser.Display.Color.HexStringToColor(color);
             this.paddleGfx.lineStyle(2, c.color, 0.4);
             this.paddleGfx.strokeRoundedRect(x, y, this.paddleWidth, PADDLE_H, 4);
         }
@@ -844,13 +837,9 @@ export class GameScene extends Phaser.Scene {
             this.ballGlow.fillStyle(skin.glowColor, 0.3);
             this.ballGlow.fillCircle(b.x, b.y, BALL_R + 3);
 
-            if (skin.gradient) {
-                // Rainbow: use pre-rendered gradient texture
-                this.ballGlow.fillTexture(this.textures.get('ball_rainbow'), b.x - BALL_R, b.y - BALL_R, BALL_R * 2, BALL_R * 2);
-            } else {
-                this.ballGlow.fillStyle(skin.ballColor, 0.5);
-                this.ballGlow.fillCircle(b.x, b.y, BALL_R);
-            }
+            // Solid fill — Phaser Graphics CANVAS does not support gradients
+            this.ballGlow.fillStyle(skin.ballColor, 0.5);
+            this.ballGlow.fillCircle(b.x, b.y, BALL_R);
         });
 
         // ── Update power-ups ──
