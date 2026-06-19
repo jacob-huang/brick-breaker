@@ -4,6 +4,7 @@
  * Entities are plain objects + Graphics rendering (no physics sprites).
  */
 import { AudioManager } from '../audio/AudioManager.js';
+import { loadSettings, saveSettings } from '../settings.js';
 
 // ── Constants ──────────────────────────────────────────────────────────
 const W = 800;
@@ -44,6 +45,22 @@ const BRICK_DEFS = [
     { color: '#ff44aa', points: 10 }, // row 6 (bottom)
 ];
 
+// ── Paddle Skins ───────────────────────────────────────────────────
+const PADDLE_SKINS = {
+    default: { color: '#00ccff', wideColor: '#00ffcc', glow: true },
+    fire:    { color: '#ff4400', wideColor: '#ff8800', glow: true, gradient: true },
+    ice:     { color: '#00ccff', wideColor: '#88eeff', glow: true, gradient: true },
+    rainbow: { color: '#ff0000', wideColor: '#00ff00', glow: true, gradient: true },
+};
+
+// ── Ball Skins ─────────────────────────────────────────────────────
+const BALL_SKINS = {
+    default: { glowColor: 0xffffff, ballColor: 0x88aaff, trailColor: 0x88aaff },
+    fire:    { glowColor: 0xff6600, ballColor: 0xff4400, trailColor: 0xff4400 },
+    ice:     { glowColor: 0x88ffff, ballColor: 0x00ccdd, trailColor: 0x00ccdd },
+    rainbow: { glowColor: 0xffffff, ballColor: 0xffffff, trailColor: 0xffffff, gradient: true },
+};
+
 // Power-up types
 const PU_WIDE = 'wide';
 const PU_MULTIBALL = 'multiball';
@@ -66,6 +83,13 @@ export class GameScene extends Phaser.Scene {
         this.audio = AudioManager.instance;
         this.ballSpeed = Math.min(BASE_SPEED + (this.level - 1) * SPEED_INCREMENT, MAX_SPEED);
         this.highScore = this.getHighScore();
+
+        // ── Settings ──
+        const settings = loadSettings();
+        this.settings = settings;
+        this.audio.setPack(settings.soundPack);
+        this.paddleSkin = settings.paddleSkin;
+        this.ballSkin = settings.ballSkin;
     }
 
     create() {
@@ -120,13 +144,30 @@ export class GameScene extends Phaser.Scene {
         });
         this.input.keyboard.on('keydown-SPACE', () => this.launchAll());
         this.input.keyboard.on('keydown-P', () => this.togglePause());
-        this.input.keyboard.on('keydown-ESC', () => this.togglePause());
+        this.input.keyboard.on('keydown-ESC', () => {
+            if (!this.settingsVisible) this.togglePause();
+        });
         this.input.keyboard.on('keydown-M', () => this.toggleMute());
+        this.input.keyboard.on('keydown-TAB', (event) => {
+            event.preventDefault();
+            this.toggleSettings();
+        });
+        this.input.keyboard.on('keydown-ESC', () => {
+            if (this.settingsVisible) {
+                this.toggleSettings();
+            }
+        });
         this.input.on('pointermove', (pointer) => {
             if (this.isActive) {
                 this.paddleX = Phaser.Math.Clamp(pointer.x, this.paddleWidth / 2, W - this.paddleWidth / 2);
             }
         });
+
+        // ── Settings menu ──
+        this.settingsVisible = false;
+        this.settingsMenu = this.add.text(0, 0, '', { fontFamily: '"Press Start 2P", monospace', fontSize: '12px', color: '#ffffff' }).setVisible(false);
+        this.settingsBg = this.add.graphics();
+        this.settingsOptionTexts = [];
 
         // ── Wide paddle timer ──
         this.wideTimer = null;
@@ -172,6 +213,16 @@ export class GameScene extends Phaser.Scene {
         this.muteText.on('pointerover', () => this.muteText.setAlpha(0.8));
         this.muteText.on('pointerout', () => this.muteText.setAlpha(1));
         this.muted = false;
+
+        // ── Settings button ──
+        this.settingsBtn = this.add.text(W - 30, 30, '⚙', {
+            fontFamily: '"Press Start 2P", monospace',
+            fontSize: '10px',
+            color: '#888888',
+        }).setOrigin(1, 0).setInteractive({ useHandCursor: true });
+        this.settingsBtn.on('pointerdown', () => this.toggleSettings());
+        this.settingsBtn.on('pointerover', () => this.settingsBtn.setAlpha(0.8));
+        this.settingsBtn.on('pointerout', () => this.settingsBtn.setAlpha(1));
     }
 
     // ── High Score ───────────────────────────────────────────────────
@@ -324,25 +375,31 @@ export class GameScene extends Phaser.Scene {
     // ── Paddle rendering ─────────────────────────────────────────────
     drawPaddle() {
         this.paddleGfx.clear();
-        const color = this.paddleWidth > PADDLE_W ? '#00ffcc' : '#00ccff';
-        const c = Phaser.Display.Color.HexStringToColor(color);
-        this.paddleGfx.fillStyle(c.color, 1);
-        this.paddleGfx.fillRoundedRect(
-            this.paddleX - this.paddleWidth / 2,
-            PADDLE_Y - PADDLE_H / 2,
-            this.paddleWidth,
-            PADDLE_H,
-            4
-        );
-        // Glow
-        this.paddleGfx.lineStyle(2, c.color, 0.4);
-        this.paddleGfx.strokeRoundedRect(
-            this.paddleX - this.paddleWidth / 2,
-            PADDLE_Y - PADDLE_H / 2,
-            this.paddleWidth,
-            PADDLE_H,
-            4
-        );
+        const skin = PADDLE_SKINS[this.paddleSkin] || PADDLE_SKINS.default;
+        const color = this.paddleWidth > PADDLE_W ? skin.wideColor : skin.color;
+        const x = this.paddleX - this.paddleWidth / 2;
+        const y = PADDLE_Y - PADDLE_H / 2;
+
+        // Gradient fills for fire, ice, rainbow
+        if (skin.gradient) {
+            const grad = this.paddleGfx.createLinearGradient(x, y, x + this.paddleWidth, y);
+            const c1 = Phaser.Display.Color.HexStringToColor(color);
+            const c2 = Phaser.Display.Color.HexStringToColor(skin.wideColor);
+            grad.addColorStop(0, c1.color);
+            grad.addColorStop(1, c2.color);
+            this.paddleGfx.fillStyle(grad, 1);
+        } else {
+            const c = Phaser.Display.Color.HexStringToColor(color);
+            this.paddleGfx.fillStyle(c.color, 1);
+        }
+        this.paddleGfx.fillRoundedRect(x, y, this.paddleWidth, PADDLE_H, 4);
+
+        // Glow border
+        if (skin.glow) {
+            const c = Phaser.Display.Color.HexStringToColor(color);
+            this.paddleGfx.lineStyle(2, c.color, 0.4);
+            this.paddleGfx.strokeRoundedRect(x, y, this.paddleWidth, PADDLE_H, 4);
+        }
     }
 
     // ── Power-ups ────────────────────────────────────────────────────
@@ -473,6 +530,106 @@ export class GameScene extends Phaser.Scene {
         this.muteText.setText(this.muted ? '🔇' : '🔊');
     }
 
+    // ── Settings ─────────────────────────────────────────────────────
+    toggleSettings() {
+        this.settingsVisible = !this.settingsVisible;
+        if (this.settingsVisible) {
+            this.settingsMenu.setVisible(true);
+            this.drawSettingsMenu();
+        } else {
+            this.settingsMenu.setVisible(false);
+            this.settingsBg.clear();
+            this.settingsOptionTexts.forEach(t => t.destroy());
+            this.settingsOptionTexts = [];
+        }
+    }
+
+    drawSettingsMenu() {
+        this.settingsBg.clear();
+        this.settingsOptionTexts.forEach(t => t.destroy());
+        this.settingsOptionTexts = [];
+
+        const cx = W / 2;
+        const menuW = 400;
+        const menuX = cx - menuW / 2;
+
+        // Title
+        this.settingsMenu.setText('SETTINGS', {
+            fontFamily: '"Press Start 2P", monospace',
+            fontSize: '20px',
+            color: '#00ccff',
+        }).setOrigin(0.5).setPosition(cx, 40);
+
+        // ── Sound Packs ──
+        this._addSectionTitle('SOUND', menuX + 20, 80);
+        this._addRadioRow(['classic', 'retro', 'synth'], 100, 80, 120, 'soundPack');
+
+        // ── Paddle Skins ──
+        this._addSectionTitle('PADDLE', menuX + 20, 130);
+        this._addRadioRow(['default', 'fire', 'ice', 'rainbow'], 100, 150, 100, 'paddleSkin');
+
+        // ── Ball Skins ──
+        this._addSectionTitle('BALL', menuX + 20, 230);
+        this._addRadioRow(['default', 'fire', 'ice', 'rainbow'], 100, 250, 100, 'ballSkin');
+
+        // ── Back Button ──
+        this._addText(cx, 370, 'PRESS TAB OR ESC TO CLOSE', {
+            fontFamily: '"Press Start 2P", monospace',
+            fontSize: '8px',
+            color: '#888888',
+        }).setOrigin(0.5);
+
+        // Draw menu background
+        this.settingsBg.fillStyle(0x000000, 0.5);
+        this.settingsBg.fillRect(menuX, 30, menuW, 360);
+        this.settingsBg.lineStyle(2, 0x00ccff, 0.6);
+        this.settingsBg.strokeRect(menuX, 30, menuW, 360);
+    }
+
+    _addSectionTitle(text, x, y) {
+        this._addText(x, y, text, {
+            fontFamily: '"Press Start 2P", monospace',
+            fontSize: '9px',
+            color: '#ffcc00',
+        });
+    }
+
+    _addText(x, y, text, style) {
+        const t = this.add.text(x, y, text, style);
+        this.settingsMenu.add(t);
+        return t;
+    }
+
+    _addRadioRow(options, startX, startY, gap, settingKey) {
+        options.forEach((opt, i) => {
+            const x = startX + i * gap;
+            const selected = this.settings[settingKey] === opt;
+            const color = selected ? '#00ffcc' : '#888888';
+            const prefix = selected ? '► ' : '  ';
+            const label = prefix + opt.charAt(0).toUpperCase() + opt.slice(1);
+
+            const t = this._addText(x, startY, label, {
+                fontFamily: '"Press Start 2P", monospace',
+                fontSize: '9px',
+                color,
+            });
+
+            // Make the text area clickable
+            const rect = new Phaser.Geom.Rectangle(0, -10, gap - 10, 20);
+            t.setInteractive(rect, Phaser.Geom.Rectangle.Contains);
+            t.on('pointerdown', () => {
+                this.settings[settingKey] = opt;
+                saveSettings(this.settings);
+                if (settingKey === 'soundPack') this.audio.setPack(opt);
+                this.drawSettingsMenu();
+            });
+            t.on('pointerover', () => t.setAlpha(0.8));
+            t.on('pointerout', () => {
+                if (!this.settings[settingKey] || this.settings[settingKey] !== opt) t.setAlpha(1);
+            });
+        });
+    }
+
     // ── Collision detection ──────────────────────────────────────────
     subStepBall(ball, dt) {
         if (ball.attached) {
@@ -589,7 +746,7 @@ export class GameScene extends Phaser.Scene {
 
     // ── Update ───────────────────────────────────────────────────────
     update(time, delta) {
-        if (!this.isActive || this.paused) return;
+        if (!this.isActive || this.paused || this.settingsVisible) return;
 
         // ── Paddle keyboard movement ──
         const paddleSpeed = 7;
@@ -656,6 +813,8 @@ export class GameScene extends Phaser.Scene {
         this.ballGlow.clear();
         this.balls.forEach(b => {
             if (b.attached) return;
+            const skin = BALL_SKINS[this.ballSkin] || BALL_SKINS.default;
+
             // Draw trail (single ghost circle at previous position)
             const dx = b.x - b.trailX;
             const dy = b.y - b.trailY;
@@ -663,17 +822,30 @@ export class GameScene extends Phaser.Scene {
             if (dist > 0.5) {
                 const trailAlpha = Math.min(0.2, dist * 0.02);
                 const trailRadius = Math.min(BALL_R, 3 + dist * 0.3);
-                this.ballGlow.fillStyle(0x88aaff, trailAlpha);
+                this.ballGlow.fillStyle(skin.trailColor, trailAlpha);
                 this.ballGlow.fillCircle(b.trailX, b.trailY, trailRadius);
             }
             // Update trail position
             b.trailX = b.x;
             b.trailY = b.y;
+
             // Draw ball glow
-            this.ballGlow.fillStyle(0xffffff, 0.3);
+            this.ballGlow.fillStyle(skin.glowColor, 0.3);
             this.ballGlow.fillCircle(b.x, b.y, BALL_R + 3);
-            this.ballGlow.fillStyle(0x88aaff, 0.5);
-            this.ballGlow.fillCircle(b.x, b.y, BALL_R);
+
+            if (skin.gradient) {
+                // Rainbow: vertical gradient
+                const grad = this.ballGlow.createLinearGradient(
+                    b.x, b.y - BALL_R, b.x, b.y + BALL_R
+                );
+                const colors = [0xff0000, 0xff8800, 0xffff00, 0x00ff00, 0x0088ff, 0x8800ff];
+                colors.forEach((c, i) => grad.addColorStop(i / (colors.length - 1), c));
+                this.ballGlow.fillStyle(grad, 0.6);
+                this.ballGlow.fillCircle(b.x, b.y, BALL_R);
+            } else {
+                this.ballGlow.fillStyle(skin.ballColor, 0.5);
+                this.ballGlow.fillCircle(b.x, b.y, BALL_R);
+            }
         });
 
         // ── Update power-ups ──

@@ -4,7 +4,7 @@
 
 A polished retro arcade Brick Breaker game built with **Phaser 3** framework, targeting modern web browsers. Zero external assets — all textures generated programmatically at runtime. Single HTML entry point, runs via Vite dev server or production build.
 
-**Status**: ✅ Complete — v1.2 (June 15, 2026)  
+**Status**: ✅ Complete — v1.3 (June 17, 2026)  
 **Framework**: Phaser 3 (CANVAS renderer)  
 **Build**: Vite  
 
@@ -87,6 +87,25 @@ Dropped randomly (22% chance) when a brick is destroyed. Power-ups fall from the
 - **Particle explosions**: 12 particles per brick hit, colored to match brick, with gravity and fade-out
 - **Subtle background grid**: 40px spacing, 2% opacity white lines (pre-rendered as texture)
 
+### Custom Skins (Settings → Paddle / Ball)
+4 skins each, persisted in localStorage:
+
+**Paddle Skins**:
+| Skin | Visual |
+|------|--------|
+| Default | Solid `#00ccff` rounded rect with neon glow border |
+| Fire | Horizontal gradient `#ff4400` → `#ff8800` with glow |
+| Ice | Horizontal gradient `#00ccff` → `#88eeff` with glow |
+| Rainbow | Horizontal gradient cycling through rainbow colors |
+
+**Ball Skins**:
+| Skin | Visual |
+|------|--------|
+| Default | White glow + `#88aaff` blue fill |
+| Fire | Orange `#ff6600` glow + `#ff4400` fill, orange trail |
+| Ice | Cyan `#88ffff` glow + `#00ccdd` fill, cyan trail |
+| Rainbow | White glow + vertical rainbow gradient fill, white trail |
+
 ### Typography
 - **Font**: Press Start 2P (Google Fonts)
 - **HUD**: 12px, combo: 10px, title: 32px, instructions: 10px
@@ -97,14 +116,17 @@ Dropped randomly (22% chance) when a brick is destroyed. Power-ups fall from the
 
 Web Audio API oscillators — no external audio files.
 
-| Event | Waveform | Frequency | Duration |
-|-------|----------|-----------|----------|
-| Ball bounce | Square | 440 Hz | 80ms |
-| Brick hit (row 0) | Square | 520–740 Hz (row-dependent) | 120ms, descending slide |
-| Power-up pickup | Sine | 600→1200 Hz, then 900→1400 Hz | 100ms + 150ms (delayed) |
-| Life lost | Sawtooth | 300→80 Hz | 300ms, descending |
-| Level complete | Square | 500→900 Hz (5-note fanfare) | 150ms each, 100ms apart |
-| Game over | Sawtooth | 400→100 Hz, 300→60 Hz, 200→40 Hz | 200ms + 300ms + 500ms |
+### Sound Packs
+3 selectable sound packs (Settings → Sound), persisted in localStorage:
+
+| Event | Classic (default) | Retro (chiptune) | Synth (electronic) |
+|-------|-------------------|-------------------|-------------------|
+| Ball bounce | Square, 440 Hz, 80ms | Triangle, 660 Hz, 60ms | Sawtooth, 300 Hz, 100ms |
+| Brick hit | Square, 520–740 Hz, 120ms | Triangle, 587–880 Hz, 100ms | Sawtooth, 220–440 Hz, 150ms |
+| Power-up | Sine, 600→1200, 900→1400 | Triangle, 523→1046, 784→1175 | Sine, 440→880, 660→1100 |
+| Life lost | Sawtooth, 300→80 Hz, 300ms | Square, 440→110 Hz, 250ms | Sawtooth, 220→55 Hz, 350ms |
+| Level complete | Square, 5-note fanfare | Triangle, 5-note fanfare | Sine, 5-note fanfare |
+| Game over | 3x Sawtooth sweeps | 3x Square sweeps | 3x Sawtooth sweeps |
 
 **Rate-limited audio**: 40ms cooldown between sounds to prevent overlap.
 
@@ -128,6 +150,14 @@ Web Audio API oscillators — no external audio files.
 - Semi-transparent black background
 - "PAUSED" (28px, cyan)
 - "Press P to Resume" (11px, gray)
+
+### Settings Overlay (during gameplay)
+- Tab or ⚙ button to open, Tab/ESC to close
+- **Sound Pack**: Classic / Retro / Synth (radio buttons)
+- **Paddle Skin**: Default / Fire / Ice / Rainbow (radio buttons)
+- **Ball Skin**: Default / Fire / Ice / Rainbow (radio buttons)
+- All settings persisted in localStorage
+- Game continues running behind overlay (physics paused)
 
 ### Game Over Screen
 - Semi-transparent black background
@@ -195,6 +225,13 @@ Web Audio API oscillators — no external audio files.
 - **Paddle**: Position tracked as `{paddleX, paddleWidth}` — no physics sprite
 - **Particles**: Temporary Graphics objects animated via Phaser Tweens
 
+### Settings Persistence
+- **File**: `src/settings.js` — `loadSettings()` / `saveSettings()`
+- **Key**: `brickBreakerSettings` in localStorage
+- **Fields**: `soundPack` (classic/retro/synth), `paddleSkin` (default/fire/ice/rainbow), `ballSkin` (default/fire/ice/rainbow)
+- **Defaults**: `{ soundPack: 'classic', paddleSkin: 'default', ballSkin: 'default' }`
+- Settings loaded in `GameScene.init()`, applied to `AudioManager` and rendering
+
 ### Physics
 - **Manual collision detection**: AABB checks against brick rectangles
 - **Ball-wall bounce**: Simple velocity inversion at screen edges
@@ -213,7 +250,7 @@ Web Audio API oscillators — no external audio files.
 - [x] Ball trail effect — **v1.2** — 6-segment fading trail per ball
 - [x] Mobile touch controls — **v1.2** — `touch-action: none`, touch-drag paddle, touch-tap launch
 - [x] Vite production build optimization — **v1.2** — Phaser vendor chunk split (22KB game code)
-- [ ] Sound pack selection (chiptune, 8-bit, etc.)
+- [x] Sound pack selection (chiptune, 8-bit, etc.) — **v1.3** — 3 packs: Classic, Retro (triangle), Synth (sawtooth)
+- [x] Custom paddle/ball skins — **v1.3** — 4 skins each (default, fire, ice, rainbow), persisted in settings
 - [ ] Online leaderboard
-- [ ] Custom paddle/ball skins
 - [ ] WebGL renderer support (fix CanvasTexture upload issues)
