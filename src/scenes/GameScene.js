@@ -563,15 +563,15 @@ export class GameScene extends Phaser.Scene {
         this.settingsMenu.add(title);
 
         // ── Sound Packs ──
-        this._addSectionTitle('SOUND', menuX + 10, 70, 50);
+        this._addSectionTitle('SOUND', menuX + 10, 70);
         this._addRadioRow(['classic', 'retro', 'synth'], 100, 90, 120, 'soundPack');
 
         // ── Paddle Skins ──
-        this._addSectionTitle('PADDLE', menuX + 10, 130, 50);
+        this._addSectionTitle('PADDLE', menuX + 10, 130);
         this._addRadioRow(['default', 'fire', 'ice', 'rainbow'], 100, 150, 100, 'paddleSkin');
 
         // ── Ball Skins ──
-        this._addSectionTitle('BALL', menuX + 10, 200, 50);
+        this._addSectionTitle('BALL', menuX + 10, 200);
         this._addRadioRow(['default', 'fire', 'ice', 'rainbow'], 100, 220, 100, 'ballSkin');
 
         // ── Back Button ──
@@ -588,14 +588,12 @@ export class GameScene extends Phaser.Scene {
         this.settingsBg.strokeRect(menuX, 30, menuW, 290);
     }
 
-    _addSectionTitle(text, x, y, width) {
-        const t = this._addText(x, y, text, {
+    _addSectionTitle(text, x, y) {
+        this._addText(x, y, text, {
             fontFamily: '"Press Start 2P", monospace',
             fontSize: '9px',
             color: '#ffcc00',
         });
-        t.setOrigin(0, 0);
-        t.setFixedWidth(width);
     }
 
     _addText(x, y, text, style) {
