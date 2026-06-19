@@ -539,15 +539,25 @@ export class GameScene extends Phaser.Scene {
         } else {
             this.settingsMenu.setVisible(false);
             this.settingsBg.clear();
-            this.settingsOptionTexts.forEach(t => t.destroy());
-            this.settingsOptionTexts = [];
+            this._destroySettingsChildren();
         }
+    }
+
+    _destroySettingsChildren() {
+        // Properly destroy all children of the settings group to
+        // remove stale event listeners that Group.clear() may leave behind
+        const children = this.settingsMenu.getChildren();
+        for (let i = children.length - 1; i >= 0; i--) {
+            const child = children[i];
+            child.removeAllListeners();
+            child.destroy();
+        }
+        this.settingsOptionTexts = [];
     }
 
     drawSettingsMenu() {
         this.settingsBg.clear();
-        this.settingsMenu.clear(true, true);
-        this.settingsOptionTexts = [];
+        this._destroySettingsChildren();
 
         const cx = W / 2;
         const menuW = 400;
@@ -563,16 +573,16 @@ export class GameScene extends Phaser.Scene {
         this.settingsMenu.add(title);
 
         // ── Sound Packs ──
-        this._addSectionTitle('SOUND', menuX + 10, 70);
-        this._addRadioRow(['classic', 'retro', 'synth'], 100, 90, 120, 'soundPack');
+        this._addSectionTitle('SOUND', menuX + 30, 70);
+        this._addRadioRow(['classic', 'retro', 'synth'], menuX + 60, 90, 120, 'soundPack');
 
         // ── Paddle Skins ──
-        this._addSectionTitle('PADDLE', menuX + 10, 130);
-        this._addRadioRow(['default', 'fire', 'ice', 'rainbow'], 100, 150, 100, 'paddleSkin');
+        this._addSectionTitle('PADDLE', menuX + 30, 130);
+        this._addRadioRow(['default', 'fire', 'ice', 'rainbow'], menuX + 60, 150, 100, 'paddleSkin');
 
         // ── Ball Skins ──
-        this._addSectionTitle('BALL', menuX + 10, 200);
-        this._addRadioRow(['default', 'fire', 'ice', 'rainbow'], 100, 220, 100, 'ballSkin');
+        this._addSectionTitle('BALL', menuX + 30, 200);
+        this._addRadioRow(['default', 'fire', 'ice', 'rainbow'], menuX + 60, 220, 100, 'ballSkin');
 
         // ── Back Button ──
         this._addText(cx, 300, 'PRESS TAB OR ESC TO CLOSE', {
@@ -620,6 +630,8 @@ export class GameScene extends Phaser.Scene {
             const rect = new Phaser.Geom.Rectangle(0, -12, gap, 24);
             t.setInteractive(rect, Phaser.Geom.Rectangle.Contains);
             t.on('pointerdown', () => {
+                // Skip redraw if already selected (avoids destroying clicked object)
+                if (this.settings[settingKey] === opt) return;
                 this.settings[settingKey] = opt;
                 saveSettings(this.settings);
                 if (settingKey === 'soundPack') this.audio.setPack(opt);
