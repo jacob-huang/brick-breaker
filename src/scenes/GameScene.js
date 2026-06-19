@@ -380,19 +380,16 @@ export class GameScene extends Phaser.Scene {
         const x = this.paddleX - this.paddleWidth / 2;
         const y = PADDLE_Y - PADDLE_H / 2;
 
-        // Gradient fills for fire, ice, rainbow
+        // Gradient fills for fire, ice, rainbow — use pre-rendered textures
         if (skin.gradient) {
-            const grad = this.paddleGfx.createLinearGradient(x, y, x + this.paddleWidth, y);
-            const c1 = Phaser.Display.Color.HexStringToColor(color);
-            const c2 = Phaser.Display.Color.HexStringToColor(skin.wideColor);
-            grad.addColorStop(0, c1.color);
-            grad.addColorStop(1, c2.color);
-            this.paddleGfx.fillStyle(grad, 1);
+            const isWide = this.paddleWidth > PADDLE_W;
+            const texName = `paddle_${this.paddleSkin}${isWide ? '_w' : ''}`;
+            this.paddleGfx.fillTexture(this.textures.get(texName), x, y, this.paddleWidth, PADDLE_H);
         } else {
             const c = Phaser.Display.Color.HexStringToColor(color);
             this.paddleGfx.fillStyle(c.color, 1);
+            this.paddleGfx.fillRoundedRect(x, y, this.paddleWidth, PADDLE_H, 4);
         }
-        this.paddleGfx.fillRoundedRect(x, y, this.paddleWidth, PADDLE_H, 4);
 
         // Glow border
         if (skin.glow) {
@@ -848,14 +845,8 @@ export class GameScene extends Phaser.Scene {
             this.ballGlow.fillCircle(b.x, b.y, BALL_R + 3);
 
             if (skin.gradient) {
-                // Rainbow: vertical gradient
-                const grad = this.ballGlow.createLinearGradient(
-                    b.x, b.y - BALL_R, b.x, b.y + BALL_R
-                );
-                const colors = [0xff0000, 0xff8800, 0xffff00, 0x00ff00, 0x0088ff, 0x8800ff];
-                colors.forEach((c, i) => grad.addColorStop(i / (colors.length - 1), c));
-                this.ballGlow.fillStyle(grad, 0.6);
-                this.ballGlow.fillCircle(b.x, b.y, BALL_R);
+                // Rainbow: use pre-rendered gradient texture
+                this.ballGlow.fillTexture(this.textures.get('ball_rainbow'), b.x - BALL_R, b.y - BALL_R, BALL_R * 2, BALL_R * 2);
             } else {
                 this.ballGlow.fillStyle(skin.ballColor, 0.5);
                 this.ballGlow.fillCircle(b.x, b.y, BALL_R);
