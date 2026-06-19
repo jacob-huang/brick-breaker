@@ -549,7 +549,7 @@ export class GameScene extends Phaser.Scene {
         this.settingsMenu.clear(true, true);
         this.settingsOptionTexts = [];
 
-       const cx = W / 2;
+        const cx = W / 2;
         const menuW = 400;
         const menuX = cx - menuW / 2;
 
@@ -558,23 +558,24 @@ export class GameScene extends Phaser.Scene {
             fontFamily: '"Press Start 2P", monospace',
             fontSize: '20px',
             color: '#00ccff',
-        }).setOrigin(0.5);
+        });
+        title.setOrigin(0.5);
         this.settingsMenu.add(title);
 
         // ── Sound Packs ──
-        this._addSectionTitle('SOUND', menuX + 20, 80);
-        this._addRadioRow(['classic', 'retro', 'synth'], 100, 80, 120, 'soundPack');
+        this._addSectionTitle('SOUND', menuX + 10, 70, 50);
+        this._addRadioRow(['classic', 'retro', 'synth'], 100, 90, 120, 'soundPack');
 
         // ── Paddle Skins ──
-        this._addSectionTitle('PADDLE', menuX + 20, 130);
+        this._addSectionTitle('PADDLE', menuX + 10, 130, 50);
         this._addRadioRow(['default', 'fire', 'ice', 'rainbow'], 100, 150, 100, 'paddleSkin');
 
         // ── Ball Skins ──
-        this._addSectionTitle('BALL', menuX + 20, 230);
-        this._addRadioRow(['default', 'fire', 'ice', 'rainbow'], 100, 250, 100, 'ballSkin');
+        this._addSectionTitle('BALL', menuX + 10, 200, 50);
+        this._addRadioRow(['default', 'fire', 'ice', 'rainbow'], 100, 220, 100, 'ballSkin');
 
         // ── Back Button ──
-        this._addText(cx, 370, 'PRESS TAB OR ESC TO CLOSE', {
+        this._addText(cx, 300, 'PRESS TAB OR ESC TO CLOSE', {
             fontFamily: '"Press Start 2P", monospace',
             fontSize: '8px',
             color: '#888888',
@@ -582,20 +583,22 @@ export class GameScene extends Phaser.Scene {
 
         // Draw menu background
         this.settingsBg.fillStyle(0x000000, 0.5);
-        this.settingsBg.fillRect(menuX, 30, menuW, 360);
+        this.settingsBg.fillRect(menuX, 30, menuW, 290);
         this.settingsBg.lineStyle(2, 0x00ccff, 0.6);
-        this.settingsBg.strokeRect(menuX, 30, menuW, 360);
+        this.settingsBg.strokeRect(menuX, 30, menuW, 290);
     }
 
-    _addSectionTitle(text, x, y) {
-        this._addText(x, y, text, {
+    _addSectionTitle(text, x, y, width) {
+        const t = this._addText(x, y, text, {
             fontFamily: '"Press Start 2P", monospace',
             fontSize: '9px',
             color: '#ffcc00',
         });
+        t.setOrigin(0, 0);
+        t.setFixedWidth(width);
     }
 
-   _addText(x, y, text, style) {
+    _addText(x, y, text, style) {
         const t = this.add.text(x, y, text, style);
         this.settingsMenu.add(t);
         return t;
@@ -615,8 +618,8 @@ export class GameScene extends Phaser.Scene {
                 color,
             });
 
-            // Make the text area clickable
-            const rect = new Phaser.Geom.Rectangle(0, -10, gap - 10, 20);
+            // Make the text area clickable — full gap width
+            const rect = new Phaser.Geom.Rectangle(0, -12, gap, 24);
             t.setInteractive(rect, Phaser.Geom.Rectangle.Contains);
             t.on('pointerdown', () => {
                 this.settings[settingKey] = opt;
