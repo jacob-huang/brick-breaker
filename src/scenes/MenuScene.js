@@ -80,6 +80,17 @@ export class MenuScene extends Phaser.Scene {
         this.blinkInterval = 500;
         this.visible = true;
 
+        // ── LEADERBOARD button ──
+        this.leaderboardBtn = this.add.text(400, 460, 'LEADERBOARD', {
+            fontFamily: '"Press Start 2P", monospace',
+            fontSize: '12px',
+            color: '#00ccff',
+        }).setOrigin(0.5).setInteractive({ useHandCursor: true });
+
+        this.leaderboardBtn.on('pointerdown', () => this.showLeaderboard());
+        this.leaderboardBtn.on('pointerover', () => this.leaderboardBtn.setColor('#88eeff'));
+        this.leaderboardBtn.on('pointerout', () => this.leaderboardBtn.setColor('#00ccff'));
+
         // ── Input ──
         this.input.keyboard.on('keydown-SPACE', () => this.startGame());
         this.input.on('pointerdown', () => this.startGame());
@@ -99,6 +110,13 @@ export class MenuScene extends Phaser.Scene {
         this.cameras.main.fadeOut(300, 10, 10, 26);
         this.time.delayedCall(300, () => {
             this.scene.start('Game', { level: 1 });
+        });
+    }
+
+    showLeaderboard() {
+        this.cameras.main.fadeOut(300, 10, 10, 26);
+        this.time.delayedCall(300, () => {
+            this.scene.start('Leaderboard');
         });
     }
 }
