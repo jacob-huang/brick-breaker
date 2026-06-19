@@ -165,7 +165,7 @@ export class GameScene extends Phaser.Scene {
 
         // ── Settings menu ──
         this.settingsVisible = false;
-        this.settingsMenu = this.add.text(0, 0, '', { fontFamily: '"Press Start 2P", monospace', fontSize: '12px', color: '#ffffff' }).setVisible(false);
+        this.settingsMenu = this.add.group({ visible: false });
         this.settingsBg = this.add.graphics();
         this.settingsOptionTexts = [];
 
@@ -546,19 +546,20 @@ export class GameScene extends Phaser.Scene {
 
     drawSettingsMenu() {
         this.settingsBg.clear();
-        this.settingsOptionTexts.forEach(t => t.destroy());
+        this.settingsMenu.clear(true, true);
         this.settingsOptionTexts = [];
 
-        const cx = W / 2;
+       const cx = W / 2;
         const menuW = 400;
         const menuX = cx - menuW / 2;
 
         // Title
-        this.settingsMenu.setText('SETTINGS', {
+        const title = this.add.text(cx, 40, 'SETTINGS', {
             fontFamily: '"Press Start 2P", monospace',
             fontSize: '20px',
             color: '#00ccff',
-        }).setOrigin(0.5).setPosition(cx, 40);
+        }).setOrigin(0.5);
+        this.settingsMenu.add(title);
 
         // ── Sound Packs ──
         this._addSectionTitle('SOUND', menuX + 20, 80);
@@ -594,7 +595,7 @@ export class GameScene extends Phaser.Scene {
         });
     }
 
-    _addText(x, y, text, style) {
+   _addText(x, y, text, style) {
         const t = this.add.text(x, y, text, style);
         this.settingsMenu.add(t);
         return t;
