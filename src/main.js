@@ -8,6 +8,7 @@ import { MenuScene } from './scenes/MenuScene.js';
 import { GameScene } from './scenes/GameScene.js';
 import { GameOverScene } from './scenes/GameOverScene.js';
 import { WinScene } from './scenes/WinScene.js';
+import { LeaderboardScene } from './scenes/LeaderboardScene.js';
 
 const config = {
     type: Phaser.CANVAS,
@@ -18,7 +19,7 @@ const config = {
         mode: Phaser.Scale.FIT,
         autoCenter: Phaser.Scale.CENTER_BOTH,
     },
-    scene: [BootScene, MenuScene, GameScene, GameOverScene, WinScene],
+    scene: [BootScene, MenuScene, GameScene, LeaderboardScene, GameOverScene, WinScene],
     banner: false,
     backgroundColor: '#0a0a1a',
 };
