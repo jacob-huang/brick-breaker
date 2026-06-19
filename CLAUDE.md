@@ -127,6 +127,12 @@ This is the main file. Key subsystems:
 
 Persisted in `localStorage` under key `brickBreakerHighScore`. Saved on game over and win. Displayed in HUD as "BEST: {score}".
 
+## MCP Tools
+
+- **Context7** — Fetch Phaser 3 documentation (`/phaserjs/phaser`). Use for any Phaser API questions: Graphics methods, scene lifecycle, physics, textures, input, audio, scaling. Always resolve library ID first via `mcp__context7__resolve-library-id`, then query via `mcp__context7__query-docs`.
+- **Playwright** — Browser automation for testing and debugging. Use for navigating to the dev server, taking screenshots, inspecting console messages, and running functional tests.
+- **Chrome DevTools** — Chrome development info & logs. Use for console logs, network requests, page snapshots, element inspection, and performance traces.
+
 ## Testing
 
 Single test file: `tests/brick-breaker.spec.cjs` (~950 lines, ~41 tests)
