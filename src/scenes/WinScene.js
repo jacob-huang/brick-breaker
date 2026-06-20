@@ -78,10 +78,12 @@ export class WinScene extends Phaser.Scene {
         this.blinkInterval = 500;
         this.visible = true;
 
-        // Input
-        this.input.keyboard.on('keydown-SPACE', () => this.restart());
+        // Input (guard restart when submit form is active)
+        this.input.keyboard.on('keydown-SPACE', () => {
+            if (!this.submitFormVisible) this.restart();
+        });
         this.input.on('pointerdown', (pointer) => {
-            if (pointer.y < TABLE_Y - 40) {
+            if (!this.submitFormVisible && pointer.y < TABLE_Y - 40) {
                 this.restart();
             }
         });
@@ -244,20 +246,11 @@ export class WinScene extends Phaser.Scene {
         this.submitButton.on('pointerover', () => this.submitButton.setColor('#88eeff'));
         this.submitButton.on('pointerout', () => this.submitButton.setColor('#00ccff'));
 
-        // Enable keyboard input for name
-        this.input.keyboard.on('keydown', (event) => {
-            if (this.submitState !== 'idle') return;
-            if (event.key === 'Backspace') {
-                this.nameInputText = this.nameInputText.slice(0, -1);
-            } else if (event.key === 'Enter') {
-                this.submitScore();
-            } else if (event.key.length === 1 && this.nameInputText.length < 12) {
-                const char = event.key.toLowerCase();
-                if (char.match(/[a-z0-9 _-]/)) {
-                    this.nameInputText += char;
-                }
-            }
-        });
+        // Enable keyboard input for name (guard against duplicate listeners)
+        if (!this._submitKeyHandler) {
+            this._submitKeyHandler = (event) => this._onSubmitKey(event);
+            this.input.keyboard.on('keydown', this._submitKeyHandler);
+        }
 
         this.updateInputDisplay();
     }
@@ -272,7 +265,22 @@ export class WinScene extends Phaser.Scene {
         if (this.submitButton) { this.submitButton.destroy(); this.submitButton = null; }
         if (this.submitResult) { this.submitResult.destroy(); this.submitResult = null; }
 
-        this.input.keyboard.off('keydown');
+        this.input.keyboard.off('keydown', this._submitKeyHandler);
+    }
+
+    _onSubmitKey(event) {
+        if (!this.submitFormVisible || this.submitState !== 'idle') return;
+        if (event.repeat) return;
+        if (event.key === 'Backspace') {
+            this.nameInputText = this.nameInputText.slice(0, -1);
+        } else if (event.key === 'Enter') {
+            this.submitScore();
+        } else if (event.key.length === 1 && this.nameInputText.length < 12) {
+            const char = event.key.toLowerCase();
+            if (char.match(/[a-z0-9 _-]/)) {
+                this.nameInputText += char;
+            }
+        }
     }
 
     updateInputDisplay() {

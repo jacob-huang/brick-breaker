@@ -1134,4 +1134,132 @@ test.describe('Leaderboard', () => {
         const scene = await getActiveScene(page);
         expect(scene).toBe('GameOver');
     });
+
+    test('submitted name matches name stored in leaderboard', async ({ page }) => {
+        // Clear leaderboard file so any score qualifies
+        fs.writeFileSync('leaderboard.json', '[]');
+
+        await page.goto('/');
+        await waitForMenu(page);
+        await startGame(page);
+        await page.waitForTimeout(500);
+
+        // Force game over with a qualifying score
+        for (let i = 0; i < 3; i++) {
+            await page.evaluate(() => {
+                const game = window.__game;
+                if (!game) return;
+                let scene = null;
+                for (const s of game.scene.scenes) {
+                    const k = s.scene ? s.scene.key : s.key;
+                    if (k === 'Game') { scene = s; break; }
+                }
+                if (!scene) return;
+                scene.lives--;
+                scene.balls = [];
+                if (scene.lives <= 0) {
+                    scene.isActive = false;
+                    scene.score = 5000;
+                    scene.level = 3;
+                    scene.gameOver();
+                }
+            });
+            await page.waitForTimeout(200);
+        }
+
+        // Wait for Game Over scene
+        await page.waitForTimeout(1000);
+        expect(await getActiveScene(page)).toBe('GameOver');
+
+        // Click on the canvas to give it focus
+        await page.locator('canvas').click();
+        await page.waitForTimeout(100);
+
+        // Set the name and submit via the scene directly
+        // (keyboard events from Playwright have reliability issues with Phaser's input system)
+        await page.evaluate(() => {
+            const game = window.__game;
+            if (!game) return;
+            let scene = null;
+            for (const s of game.scene.scenes) {
+                const k = s.scene ? s.scene.key : s.key;
+                if (k === 'GameOver') { scene = s; break; }
+            }
+            if (!scene) return;
+            scene.nameInputText = 'playertest';
+            scene.submitScore();
+        });
+
+        await page.waitForTimeout(2000);
+
+        // Fetch the leaderboard and verify the name
+        const response = await page.request.get('/api/leaderboard');
+        const leaderboard = await response.json();
+
+        // Find the entry we just submitted
+        const entry = leaderboard.find(e => e.score === 5000 && e.level === 3);
+        expect(entry).toBeDefined();
+        expect(entry.name).toBe('playertest');
+    });
+
+    test('WinScene submitted name matches name stored in leaderboard', async ({ page }) => {
+        // Clear leaderboard file so any score qualifies
+        fs.writeFileSync('leaderboard.json', '[]');
+
+        await page.goto('/');
+        await waitForMenu(page);
+        await startGame(page);
+        await page.waitForTimeout(500);
+
+        // Complete all levels to reach WinScene
+        await page.evaluate(() => {
+            const game = window.__game;
+            if (!game) return;
+            let scene = null;
+            for (const s of game.scene.scenes) {
+                const k = s.scene ? s.scene.key : s.key;
+                if (k === 'Game') { scene = s; break; }
+            }
+            if (!scene) return;
+            scene.level = 5;
+            scene.score = 9999;
+            scene.lives = 3;
+            scene.balls = [{ x: 400, y: 400, vx: 0, vy: 0, attached: false, launched: false }];
+            scene.bricks.forEach(b => b.active = false);
+            scene.isActive = false;
+            scene.levelComplete();
+        });
+
+        // Wait for Win scene
+        await page.waitForTimeout(1500);
+        expect(await getActiveScene(page)).toBe('Win');
+
+        // Click on the canvas to give it focus
+        await page.locator('canvas').click();
+        await page.waitForTimeout(100);
+
+        // Set the name and submit via the scene directly
+        await page.evaluate(() => {
+            const game = window.__game;
+            if (!game) return;
+            let scene = null;
+            for (const s of game.scene.scenes) {
+                const k = s.scene ? s.scene.key : s.key;
+                if (k === 'Win') { scene = s; break; }
+            }
+            if (!scene) return;
+            scene.nameInputText = 'winplayer';
+            scene.submitScore();
+        });
+
+        await page.waitForTimeout(2000);
+
+        // Fetch the leaderboard and verify the name
+        const response = await page.request.get('/api/leaderboard');
+        const leaderboard = await response.json();
+
+        const entry = leaderboard.find(e => e.score === 9999 && e.level === 5);
+        expect(entry).toBeDefined();
+        expect(entry.name).toBe('winplayer');
+    });
 });
