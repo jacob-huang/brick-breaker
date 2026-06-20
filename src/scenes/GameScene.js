@@ -816,22 +816,23 @@ export class GameScene extends Phaser.Scene {
         // ── Draw ball trail + glow (single persistent Graphics) ──
         this.ballGlow.clear();
         this.balls.forEach(b => {
-            if (b.attached) return;
             const skin = BALL_SKINS[this.ballSkin] || BALL_SKINS.default;
 
-            // Draw trail (single ghost circle at previous position)
-            const dx = b.x - b.trailX;
-            const dy = b.y - b.trailY;
-            const dist = Math.sqrt(dx * dx + dy * dy);
-            if (dist > 0.5) {
-                const trailAlpha = Math.min(0.2, dist * 0.02);
-                const trailRadius = Math.min(BALL_R, 3 + dist * 0.3);
-                this.ballGlow.fillStyle(skin.trailColor, trailAlpha);
-                this.ballGlow.fillCircle(b.trailX, b.trailY, trailRadius);
+            // Draw trail (only for launched balls — attached balls don't move)
+            if (!b.attached) {
+                const dx = b.x - b.trailX;
+                const dy = b.y - b.trailY;
+                const dist = Math.sqrt(dx * dx + dy * dy);
+                if (dist > 0.5) {
+                    const trailAlpha = Math.min(0.2, dist * 0.02);
+                    const trailRadius = Math.min(BALL_R, 3 + dist * 0.3);
+                    this.ballGlow.fillStyle(skin.trailColor, trailAlpha);
+                    this.ballGlow.fillCircle(b.trailX, b.trailY, trailRadius);
+                }
+                // Update trail position
+                b.trailX = b.x;
+                b.trailY = b.y;
             }
-            // Update trail position
-            b.trailX = b.x;
-            b.trailY = b.y;
 
             // Draw ball glow
             this.ballGlow.fillStyle(skin.glowColor, 0.3);
