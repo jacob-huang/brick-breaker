@@ -550,11 +550,20 @@ export class GameScene extends Phaser.Scene {
         this._destroySettingsChildren();
 
         const cx = W / 2;
-        const menuW = 400;
+        const menuW = 440;
+        const menuH = 280;
         const menuX = cx - menuW / 2;
+        const menuY = 30;
+
+        // ── Layout constants ──
+        const titleY = menuY + 35;
+        const sectionPadX = 30;       // left padding for section titles
+        const rowStartX = menuX + 60; // left padding for option rows
+        const sectionGap = 35;        // vertical gap between sections
+        const titleRowGap = 20;       // vertical gap between section title and options
 
         // Title
-        const title = this.add.text(cx, 40, 'SETTINGS', {
+        const title = this.add.text(cx, titleY, 'SETTINGS', {
             fontFamily: '"Press Start 2P", monospace',
             fontSize: '20px',
             color: '#00ccff',
@@ -562,20 +571,27 @@ export class GameScene extends Phaser.Scene {
         title.setOrigin(0.5);
         this.settingsMenu.add(title);
 
-        // ── Sound Packs ──
-        this._addSectionTitle('SOUND', menuX + 30, 70);
-        this._addRadioRow(['classic', 'retro', 'synth'], menuX + 60, 90, 120, 'soundPack');
+        // ── Sound Packs (3 options) ──
+        let y = titleY + 30;
+        this._addSectionTitle('SOUND', menuX + sectionPadX, y);
+        y += titleRowGap;
+        this._addRadioRow(['classic', 'retro', 'synth'], rowStartX, y, 100, 'soundPack');
 
-        // ── Paddle Skins ──
-        this._addSectionTitle('PADDLE', menuX + 30, 130);
-        this._addRadioRow(['default', 'fire', 'ice', 'rainbow'], menuX + 60, 150, 100, 'paddleSkin');
+        // ── Paddle Skins (4 options) ──
+        y += sectionGap;
+        this._addSectionTitle('PADDLE', menuX + sectionPadX, y);
+        y += titleRowGap;
+        this._addRadioRow(['default', 'fire', 'ice', 'rainbow'], rowStartX, y, 90, 'paddleSkin');
 
-        // ── Ball Skins ──
-        this._addSectionTitle('BALL', menuX + 30, 200);
-        this._addRadioRow(['default', 'fire', 'ice', 'rainbow'], menuX + 60, 220, 100, 'ballSkin');
+        // ── Ball Skins (4 options) ──
+        y += sectionGap;
+        this._addSectionTitle('BALL', menuX + sectionPadX, y);
+        y += titleRowGap;
+        this._addRadioRow(['default', 'fire', 'ice', 'rainbow'], rowStartX, y, 90, 'ballSkin');
 
-        // ── Back Button ──
-        this._addText(cx, 300, 'PRESS TAB OR ESC TO CLOSE', {
+        // ── Close hint ──
+        const hintY = y + sectionGap + 10;
+        this._addText(cx, hintY, 'PRESS TAB OR ESC TO CLOSE', {
             fontFamily: '"Press Start 2P", monospace',
             fontSize: '8px',
             color: '#888888',
@@ -583,9 +599,9 @@ export class GameScene extends Phaser.Scene {
 
         // Draw menu background
         this.settingsBg.fillStyle(0x000000, 0.5);
-        this.settingsBg.fillRect(menuX, 30, menuW, 290);
+        this.settingsBg.fillRect(menuX, menuY, menuW, menuH);
         this.settingsBg.lineStyle(2, 0x00ccff, 0.6);
-        this.settingsBg.strokeRect(menuX, 30, menuW, 290);
+        this.settingsBg.strokeRect(menuX, menuY, menuW, menuH);
     }
 
     _addSectionTitle(text, x, y) {
@@ -815,9 +831,8 @@ export class GameScene extends Phaser.Scene {
 
         // ── Draw ball trail + glow (single persistent Graphics) ──
         this.ballGlow.clear();
+        const skin = BALL_SKINS[this.ballSkin] || BALL_SKINS.default;
         this.balls.forEach(b => {
-            const skin = BALL_SKINS[this.ballSkin] || BALL_SKINS.default;
-
             // Draw trail (only for launched balls — attached balls don't move)
             if (!b.attached) {
                 const dx = b.x - b.trailX;
@@ -834,11 +849,9 @@ export class GameScene extends Phaser.Scene {
                 b.trailY = b.y;
             }
 
-            // Draw ball glow
+            // Draw ball glow + solid fill (all balls, attached or not)
             this.ballGlow.fillStyle(skin.glowColor, 0.3);
             this.ballGlow.fillCircle(b.x, b.y, BALL_R + 3);
-
-            // Solid fill — Phaser Graphics CANVAS does not support gradients
             this.ballGlow.fillStyle(skin.ballColor, 0.5);
             this.ballGlow.fillCircle(b.x, b.y, BALL_R);
         });
