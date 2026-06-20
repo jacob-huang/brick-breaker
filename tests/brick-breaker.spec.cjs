@@ -931,6 +931,120 @@ test.describe('Restart', () => {
   });
 });
 
+// ─── Duplicate Listener Bug ───────────────────────────────────────────
+test.describe('Duplicate listener cleanup', () => {
+  test('input listeners are cleaned up on scene shutdown so restarts do not spawn extra balls', async ({ page }) => {
+    // ── First game: start → game over → restart → launch ──
+    await page.goto(URL);
+    await waitForMenu(page);
+    await startGame(page);
+    await page.waitForTimeout(500);
+
+    // Force game over
+    await page.evaluate(() => {
+      const game = window.__game;
+      if (!game) return;
+      let scene = null;
+      for (const s of game.scene.scenes) {
+        const k = s.scene ? s.scene.key : s.key;
+        if (k === 'Game') { scene = s; break; }
+      }
+      if (!scene) return;
+      scene.lives = 0;
+      scene.balls = [];
+      scene.isActive = false;
+      scene.gameOver();
+    });
+    await page.waitForTimeout(1000);
+
+    // Restart from GameOver screen
+    await page.keyboard.press('Space');
+    await page.waitForTimeout(800);
+    expect(await getActiveScene(page)).toBe('Game');
+
+    // Launch the ball (ball starts attached, press Space to launch)
+    await page.keyboard.press('Space');
+    await page.waitForTimeout(500);
+
+    const state1 = await getGameState(page);
+    // Exactly 1 ball should be launched, not multiple due to duplicate listeners
+    expect(state1.ballCount).toBe(1);
+    expect(state1.ballAttached).toBe(false);
+    expect(state1.lives).toBe(3); // no life lost from chaotic launches
+
+    // ── Second game over + restart + launch ──
+    await page.evaluate(() => {
+      const game = window.__game;
+      if (!game) return;
+      let scene = null;
+      for (const s of game.scene.scenes) {
+        const k = s.scene ? s.scene.key : s.key;
+        if (k === 'Game') { scene = s; break; }
+      }
+      if (!scene) return;
+      scene.lives = 0;
+      scene.balls = [];
+      scene.isActive = false;
+      scene.gameOver();
+    });
+    await page.waitForTimeout(1000);
+
+    // Restart again
+    await page.keyboard.press('Space');
+    await page.waitForTimeout(800);
+    expect(await getActiveScene(page)).toBe('Game');
+
+    await page.keyboard.press('Space');
+    await page.waitForTimeout(500);
+
+    const state2 = await getGameState(page);
+    // Still exactly 1 ball after second restart
+    expect(state2.ballCount).toBe(1);
+    expect(state2.ballAttached).toBe(false);
+    expect(state2.lives).toBe(3);
+  });
+
+  test('pressing Space only launches once even after multiple restarts', async ({ page }) => {
+    await page.goto(URL);
+    await waitForMenu(page);
+    await startGame(page);
+    await page.waitForTimeout(500);
+
+    // Helper: force game over
+    const forceGameOver = () => page.evaluate(() => {
+      const game = window.__game;
+      if (!game) return;
+      let scene = null;
+      for (const s of game.scene.scenes) {
+        const k = s.scene ? s.scene.key : s.key;
+        if (k === 'Game') { scene = s; break; }
+      }
+      if (!scene) return;
+      scene.lives = 0;
+      scene.balls = [];
+      scene.isActive = false;
+      scene.gameOver();
+    });
+
+    // Restart 3 times, launching on each new game
+    for (let i = 0; i < 3; i++) {
+      await forceGameOver();
+      await page.waitForTimeout(800);
+
+      await page.keyboard.press('Space'); // restart from GameOver
+      await page.waitForTimeout(500);
+      expect(await getActiveScene(page)).toBe('Game');
+
+      await page.keyboard.press('Space'); // launch ball
+      await page.waitForTimeout(300);
+
+      const state = await getGameState(page);
+      expect(state.ballCount).toBe(1);
+      expect(state.ballAttached).toBe(false);
+    }
+  });
+});
+
 // ─── Visual ───────────────────────────────────────────────────────────
 test.describe('Visual', () => {
   test('screenshot captures gameplay screen', async ({ page }) => {

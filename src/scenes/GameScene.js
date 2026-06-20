@@ -933,4 +933,13 @@ export class GameScene extends Phaser.Scene {
             this.scene.start('GameOver', { score: this.score, level: this.level, highScore: this.highScore });
         });
     }
+
+    shutdown() {
+        this.input.keyboard.off('keydown-SPACE');
+        this.input.keyboard.off('keydown-P');
+        this.input.keyboard.off('keydown-ESC');
+        this.input.keyboard.off('keydown-M');
+        this.input.keyboard.off('keydown-TAB');
+        this.input.off('pointermove');
+    }
 }
