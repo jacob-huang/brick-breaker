@@ -243,8 +243,8 @@ export class WinScene extends Phaser.Scene {
         }).setOrigin(0.5).setInteractive({ useHandCursor: true });
 
         this.submitButton.on('pointerdown', () => this.submitScore());
-        this.submitButton.on('pointerover', () => this.submitButton.setColor('#88eeff'));
-        this.submitButton.on('pointerout', () => this.submitButton.setColor('#00ccff'));
+        this.submitButton.on('pointerover', () => { if (this.submitButton) this.submitButton.setColor('#88eeff'); });
+        this.submitButton.on('pointerout', () => { if (this.submitButton) this.submitButton.setColor('#00ccff'); });
 
         // Enable keyboard input for name (guard against duplicate listeners)
         if (!this._submitKeyHandler) {
