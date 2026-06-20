@@ -3,14 +3,18 @@
  */
 const API_URL = '/api/leaderboard';
 const TABLE_Y = 380;
-const TABLE_WIDTH = 400;
-const TABLE_HEIGHT = 150;
+const TABLE_WIDTH = 385; // content(285)+spacing(40)=325 + padding(60) = 385, centered on 800px screen
+const TABLE_X = 208; // 400 - 385/2 = 207.5 → 208, table right = 593
+const TABLE_HEIGHT = 170; // header + 7 data rows, comfortable padding
 const ROW_HEIGHT = 20;
 const HEADER_Y = TABLE_Y + 5;
 const MAX_VISIBLE_ROWS = 8; // header + 7 visible, scrollable
 const FORM_Y = 545;
 const INPUT_WIDTH = 120;
 const INPUT_HEIGHT = 24;
+
+// Column left edges: rank=238, name=273, score=383, level=438, date=473
+const colX = [238, 273, 383, 438, 473]; // left edges: rank, name, score, level, date/time
 
 export class GameOverScene extends Phaser.Scene {
     constructor() {
@@ -83,7 +87,6 @@ export class GameOverScene extends Phaser.Scene {
 
         this.blinkTimer = 0;
         this.blinkInterval = 500;
-        this.visible = true;
 
         // Input (guard restart when submit form is active)
         this.input.keyboard.on('keydown-SPACE', () => {
@@ -104,15 +107,14 @@ export class GameOverScene extends Phaser.Scene {
     drawTableBg() {
         this.tableBg.clear();
         this.tableBg.fillStyle(0x000000, 0.5);
-        this.tableBg.fillRect(200, TABLE_Y - 10, TABLE_WIDTH, TABLE_HEIGHT + 20);
+        this.tableBg.fillRect(TABLE_X, TABLE_Y - 10, TABLE_WIDTH, TABLE_HEIGHT + 20);
         this.tableBg.lineStyle(2, 0x00ccff, 0.6);
-        this.tableBg.strokeRect(200, TABLE_Y - 10, TABLE_WIDTH, TABLE_HEIGHT + 20);
+        this.tableBg.strokeRect(TABLE_X, TABLE_Y - 10, TABLE_WIDTH, TABLE_HEIGHT + 20);
     }
 
     addHeader() {
         this.headerTexts = [];
-        const headers = ['#', 'USER', 'SCORE', 'DATE & TIME'];
-        const colX = [220, 300, 540, 620];
+        const headers = ['#', 'USER', 'SCORE', 'LVL', 'DATE & TIME'];
         for (let i = 0; i < headers.length; i++) {
             const text = this.add.text(colX[i], HEADER_Y, headers[i], {
                 fontFamily: '"Press Start 2P", monospace',
@@ -127,22 +129,27 @@ export class GameOverScene extends Phaser.Scene {
         this.rowTexts = [];
         for (let i = 0; i < MAX_VISIBLE_ROWS; i++) {
             this.rowTexts[i] = [
-                this.add.text(220, TABLE_Y + 15 + i * ROW_HEIGHT, '', {
+                this.add.text(colX[0], TABLE_Y + 15 + i * ROW_HEIGHT, '', {
                     fontFamily: '"Press Start 2P", monospace',
                     fontSize: '8px',
                     color: '#cccccc',
                 }).setOrigin(0, 0.5),
-                this.add.text(300, TABLE_Y + 15 + i * ROW_HEIGHT, '', {
+                this.add.text(colX[1], TABLE_Y + 15 + i * ROW_HEIGHT, '', {
                     fontFamily: '"Press Start 2P", monospace',
                     fontSize: '8px',
                     color: '#cccccc',
                 }).setOrigin(0, 0.5),
-                this.add.text(540, TABLE_Y + 15 + i * ROW_HEIGHT, '', {
+                this.add.text(colX[2], TABLE_Y + 15 + i * ROW_HEIGHT, '', {
                     fontFamily: '"Press Start 2P", monospace',
                     fontSize: '8px',
                     color: '#ffcc00',
                 }).setOrigin(0, 0.5),
-                this.add.text(620, TABLE_Y + 15 + i * ROW_HEIGHT, '', {
+                this.add.text(colX[3], TABLE_Y + 15 + i * ROW_HEIGHT, '', {
+                    fontFamily: '"Press Start 2P", monospace',
+                    fontSize: '8px',
+                    color: '#cccccc',
+                }).setOrigin(0, 0.5),
+                this.add.text(colX[4], TABLE_Y + 15 + i * ROW_HEIGHT, '', {
                     fontFamily: '"Press Start 2P", monospace',
                     fontSize: '8px',
                     color: '#888888',
@@ -171,6 +178,7 @@ export class GameOverScene extends Phaser.Scene {
             this.rowTexts[i][1].setText('');
             this.rowTexts[i][2].setText('');
             this.rowTexts[i][3].setText('');
+            this.rowTexts[i][4].setText('');
         }
 
         if (this.leaderboard.length === 0) {
@@ -185,7 +193,8 @@ export class GameOverScene extends Phaser.Scene {
             this.rowTexts[i][0].setText(`#${i + 1}`);
             this.rowTexts[i][1].setText(entry.name);
             this.rowTexts[i][2].setText(entry.score.toString());
-            this.rowTexts[i][3].setText(this.formatDate(entry.timestamp));
+            this.rowTexts[i][3].setText(String(entry.level || '-'));
+            this.rowTexts[i][4].setText(this.formatDate(entry.timestamp));
         }
     }
 
@@ -220,6 +229,7 @@ export class GameOverScene extends Phaser.Scene {
     }
 
     showSubmitForm() {
+        if (this.submitFormVisible) return;
         this.submitFormVisible = true;
         this.submitState = 'idle';
         this.nameInputText = '';
@@ -274,7 +284,10 @@ export class GameOverScene extends Phaser.Scene {
         if (this.submitButton) { this.submitButton.destroy(); this.submitButton = null; }
         if (this.submitResult) { this.submitResult.destroy(); this.submitResult = null; }
 
-        this.input.keyboard.off('keydown', this._submitKeyHandler);
+        if (this._submitKeyHandler) {
+            this.input.keyboard.off('keydown', this._submitKeyHandler);
+            this._submitKeyHandler = null;
+        }
     }
 
     _onSubmitKey(event) {
@@ -299,7 +312,7 @@ export class GameOverScene extends Phaser.Scene {
     }
 
     async submitScore() {
-        if (this.submitState !== 'idle' || this.nameInputText.trim().length === 0) return;
+        if (!this.submitFormVisible || this.submitState !== 'idle' || this.nameInputText.trim().length === 0) return;
         this.submitState = 'submitting';
         this.updateInputDisplay();
 
@@ -383,7 +396,7 @@ export class GameOverScene extends Phaser.Scene {
         // Apply scroll to row texts
         for (let i = 0; i < MAX_VISIBLE_ROWS; i++) {
             const baseY = TABLE_Y + 15 - this.scrollY + i * ROW_HEIGHT;
-            for (let j = 0; j < 4; j++) {
+            for (let j = 0; j < 5; j++) {
                 this.rowTexts[i][j].setPosition(
                     this.rowTexts[i][j].x,
                     baseY
@@ -395,7 +408,7 @@ export class GameOverScene extends Phaser.Scene {
         for (let i = 0; i < MAX_VISIBLE_ROWS; i++) {
             const baseY = TABLE_Y + 15 - this.scrollY + i * ROW_HEIGHT;
             const visible = baseY >= TABLE_Y - 5 && baseY <= TABLE_Y + TABLE_HEIGHT + 5;
-            for (let j = 0; j < 4; j++) {
+            for (let j = 0; j < 5; j++) {
                 this.rowTexts[i][j].setVisible(visible);
             }
         }
@@ -415,5 +428,15 @@ export class GameOverScene extends Phaser.Scene {
         this.time.delayedCall(300, () => {
             this.scene.start('Game', { level: 1 });
         });
+    }
+
+    shutdown() {
+        this.input.keyboard.off('keydown-SPACE');
+        this.input.off('pointerdown');
+        this.input.off('wheel');
+        if (this._submitKeyHandler) {
+            this.input.keyboard.off('keydown', this._submitKeyHandler);
+            this._submitKeyHandler = null;
+        }
     }
 }

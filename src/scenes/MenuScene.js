@@ -78,7 +78,6 @@ export class MenuScene extends Phaser.Scene {
 
         this.blinkTimer = 0;
         this.blinkInterval = 500;
-        this.visible = true;
 
         // ── LEADERBOARD button ──
         this.leaderboardBtn = this.add.text(400, 460, 'LEADERBOARD', {
@@ -101,8 +100,7 @@ export class MenuScene extends Phaser.Scene {
         this.blinkTimer += delta;
         if (this.blinkTimer >= this.blinkInterval) {
             this.blinkTimer = 0;
-            this.visible = !this.visible;
-            this.startText.setVisible(this.visible);
+            this.startText.setVisible(!this.startText.visible);
         }
     }
 

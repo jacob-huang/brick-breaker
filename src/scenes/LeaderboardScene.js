@@ -4,11 +4,15 @@
  */
 const API_URL = '/api/leaderboard';
 const TABLE_Y = 70;
-const TABLE_WIDTH = 400;
+const TABLE_WIDTH = 385; // content(285)+spacing(40)=325 + padding(60) = 385, centered on 800px screen
+const TABLE_X = 208; // 400 - 385/2 = 207.5 → 208, table right = 593
 const TABLE_HEIGHT = 400;
 const ROW_HEIGHT = 32;
 const HEADER_Y = TABLE_Y + 5;
 const MAX_VISIBLE_ROWS = 11; // header + 10 entries
+
+// Column left edges: rank=238, name=273, score=383, level=438, date=473
+const colX = [238, 273, 383, 438, 473]; // left edges: rank, name, score, level, date/time
 
 export class LeaderboardScene extends Phaser.Scene {
     constructor() {
@@ -63,15 +67,14 @@ export class LeaderboardScene extends Phaser.Scene {
     drawTableBg() {
         this.tableBg.clear();
         this.tableBg.fillStyle(0x000000, 0.5);
-        this.tableBg.fillRect(200, TABLE_Y - 10, TABLE_WIDTH, TABLE_HEIGHT + 20);
+        this.tableBg.fillRect(TABLE_X, TABLE_Y - 10, TABLE_WIDTH, TABLE_HEIGHT + 20);
         this.tableBg.lineStyle(2, 0x00ccff, 0.6);
-        this.tableBg.strokeRect(200, TABLE_Y - 10, TABLE_WIDTH, TABLE_HEIGHT + 20);
+        this.tableBg.strokeRect(TABLE_X, TABLE_Y - 10, TABLE_WIDTH, TABLE_HEIGHT + 20);
     }
 
     addHeader() {
         this.headerTexts = [];
-        const headers = ['#', 'USER', 'SCORE', 'DATE & TIME'];
-        const colX = [220, 300, 540, 620];
+        const headers = ['#', 'USER', 'SCORE', 'LVL', 'DATE & TIME'];
         for (let i = 0; i < headers.length; i++) {
             const text = this.add.text(colX[i], HEADER_Y, headers[i], {
                 fontFamily: '"Press Start 2P", monospace',
@@ -86,22 +89,27 @@ export class LeaderboardScene extends Phaser.Scene {
         this.rowTexts = [];
         for (let i = 0; i < MAX_VISIBLE_ROWS; i++) {
             this.rowTexts[i] = [
-                this.add.text(220, TABLE_Y + 20 + i * ROW_HEIGHT, '', {
+                this.add.text(colX[0], TABLE_Y + 20 + i * ROW_HEIGHT, '', {
                     fontFamily: '"Press Start 2P", monospace',
                     fontSize: '9px',
                     color: '#cccccc',
                 }).setOrigin(0, 0.5),
-                this.add.text(300, TABLE_Y + 20 + i * ROW_HEIGHT, '', {
+                this.add.text(colX[1], TABLE_Y + 20 + i * ROW_HEIGHT, '', {
                     fontFamily: '"Press Start 2P", monospace',
                     fontSize: '9px',
                     color: '#cccccc',
                 }).setOrigin(0, 0.5),
-                this.add.text(540, TABLE_Y + 20 + i * ROW_HEIGHT, '', {
+                this.add.text(colX[2], TABLE_Y + 20 + i * ROW_HEIGHT, '', {
                     fontFamily: '"Press Start 2P", monospace',
                     fontSize: '9px',
                     color: '#ffcc00',
                 }).setOrigin(0, 0.5),
-                this.add.text(620, TABLE_Y + 20 + i * ROW_HEIGHT, '', {
+                this.add.text(colX[3], TABLE_Y + 20 + i * ROW_HEIGHT, '', {
+                    fontFamily: '"Press Start 2P", monospace',
+                    fontSize: '9px',
+                    color: '#cccccc',
+                }).setOrigin(0, 0.5),
+                this.add.text(colX[4], TABLE_Y + 20 + i * ROW_HEIGHT, '', {
                     fontFamily: '"Press Start 2P", monospace',
                     fontSize: '9px',
                     color: '#888888',
@@ -128,6 +136,7 @@ export class LeaderboardScene extends Phaser.Scene {
             this.rowTexts[i][1].setText('');
             this.rowTexts[i][2].setText('');
             this.rowTexts[i][3].setText('');
+            this.rowTexts[i][4].setText('');
         }
 
         if (this.leaderboard.length === 0) {
@@ -142,7 +151,8 @@ export class LeaderboardScene extends Phaser.Scene {
             this.rowTexts[i][0].setText(`#${i + 1}`);
             this.rowTexts[i][1].setText(entry.name);
             this.rowTexts[i][2].setText(entry.score.toString());
-            this.rowTexts[i][3].setText(this.formatDate(entry.timestamp));
+            this.rowTexts[i][3].setText(String(entry.level || '-'));
+            this.rowTexts[i][4].setText(this.formatDate(entry.timestamp));
         }
     }
 
@@ -168,7 +178,7 @@ export class LeaderboardScene extends Phaser.Scene {
         // Apply scroll to row texts
         for (let i = 0; i < MAX_VISIBLE_ROWS; i++) {
             const baseY = TABLE_Y + 20 - this.scrollY + i * ROW_HEIGHT;
-            for (let j = 0; j < 4; j++) {
+            for (let j = 0; j < 5; j++) {
                 this.rowTexts[i][j].setPosition(
                     this.rowTexts[i][j].x,
                     baseY
@@ -180,7 +190,7 @@ export class LeaderboardScene extends Phaser.Scene {
         for (let i = 0; i < MAX_VISIBLE_ROWS; i++) {
             const baseY = TABLE_Y + 20 - this.scrollY + i * ROW_HEIGHT;
             const visible = baseY >= TABLE_Y - 5 && baseY <= TABLE_Y + TABLE_HEIGHT + 5;
-            for (let j = 0; j < 4; j++) {
+            for (let j = 0; j < 5; j++) {
                 this.rowTexts[i][j].setVisible(visible);
             }
         }
