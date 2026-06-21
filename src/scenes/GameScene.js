@@ -33,6 +33,7 @@ const COMBO_WINDOW = 2000; // ms
 const COMBO_FADE = 500; // ms before fade
 const PADDLE_COOLDOWN = 80; // ms
 const SUB_STEP_MAX_SIZE = 4; // max sub-step to prevent tunneling
+const SPATIAL_CELL = BRICK_W + BRICK_PAD; // 68px — cell size for spatial grid
 
 // Brick colors and points (top row = row 0)
 const BRICK_DEFS = [
@@ -119,6 +120,9 @@ export class GameScene extends Phaser.Scene {
 
         // ── Particles (managed via particle pool) ──
         this.particles = [];
+
+        // ── Spatial hash grid for brick collision ──
+        this.spatialHash = new Map();
 
         // ── HUD ──
         this.createHUD();
@@ -356,6 +360,43 @@ export class GameScene extends Phaser.Scene {
             this.brickGfx.lineStyle(1, c.color, 0.5);
             this.brickGfx.strokeRoundedRect(b.x - b.w / 2, b.y - b.h / 2, b.w, b.h, 4);
         });
+    }
+
+    // ── Spatial hash grid ──────────────────────────────────
+    buildSpatialHash() {
+        this.spatialHash.clear();
+        for (const brick of this.bricks) {
+            if (!brick.active) continue;
+            const cellX = Math.floor(brick.x / SPATIAL_CELL);
+            const cellY = Math.floor(brick.y / SPATIAL_CELL);
+            const key = `${cellX},${cellY}`;
+            const cell = this.spatialHash.get(key);
+            if (cell) {
+                cell.push(brick);
+            } else {
+                this.spatialHash.set(key, [brick]);
+            }
+        }
+    }
+
+    // Query bricks in cells that overlap the ball's bounding box
+    spatialQueryBall(ball) {
+        const minX = Math.floor((ball.x - BALL_R) / SPATIAL_CELL);
+        const maxX = Math.floor((ball.x + BALL_R) / SPATIAL_CELL);
+        const minY = Math.floor((ball.y - BALL_R) / SPATIAL_CELL);
+        const maxY = Math.floor((ball.y + BALL_R) / SPATIAL_CELL);
+        const result = [];
+        for (let cy = minY; cy <= maxY; cy++) {
+            for (let cx = minX; cx <= maxX; cx++) {
+                const cell = this.spatialHash.get(`${cx},${cy}`);
+                if (cell) {
+                    for (const brick of cell) {
+                        if (brick.active) result.push(brick);
+                    }
+                }
+            }
+        }
+        return result;
     }
 
     // ── Paddle rendering ─────────────────────────────────────────────
@@ -696,10 +737,10 @@ export class GameScene extends Phaser.Scene {
                 }
             }
 
-            // ── Ball-brick collision ──
+            // ── Ball-brick collision (spatial hash query) ──
             if (!ball.brickHitThisFrame) {
-                for (const brick of this.bricks) {
-                    if (!brick.active) continue;
+                const candidates = this.spatialQueryBall(ball);
+                for (const brick of candidates) {
                     if (this.aabbBallBrick(ball, brick)) {
                         brick.active = false;
                         this.reflectBallOffBrick(ball, brick);
@@ -784,6 +825,9 @@ export class GameScene extends Phaser.Scene {
         if (this.balls.some(b => b.attached) && this.input.activePointer.isDown) {
             this.launchAll();
         }
+
+        // ── Build spatial hash for brick collision ──
+        this.buildSpatialHash();
 
         // ── Update balls ──
         const toRemove = [];

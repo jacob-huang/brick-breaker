@@ -8,6 +8,44 @@ export class BootScene extends Phaser.Scene {
     }
 
     preload() {
+        const TOTAL_STEPS = 7;
+        let completed = 0;
+
+        // ── Loading UI ───────────────────────────────────────
+        const bg = this.add.graphics();
+        bg.fillStyle(0x0a0a1a, 1);
+        bg.fillRect(0, 0, 800, 600);
+
+        const barBg = this.add.graphics();
+        barBg.fillStyle(0x222244, 1);
+        barBg.fillRoundedRect(250, 310, 300, 16, 4);
+
+        const barFill = this.add.graphics();
+
+        const statusText = this.add.text(400, 280, 'INITIALIZING...', {
+            fontFamily: '"Press Start 2P", monospace',
+            fontSize: '10px',
+            color: '#888888',
+        }).setOrigin(0.5);
+
+        const progressText = this.add.text(400, 350, '0 / 7', {
+            fontFamily: '"Press Start 2P", monospace',
+            fontSize: '9px',
+            color: '#00ccff',
+        }).setOrigin(0.5);
+
+        const updateProgress = (label) => {
+            completed++;
+            const pct = completed / TOTAL_STEPS;
+            barFill.clear();
+            barFill.fillStyle(0x00ccff, 1);
+            barFill.fillRoundedRect(252, 312, 296 * pct, 12, 3);
+            progressText.setText(`${completed} / ${TOTAL_STEPS}`);
+            if (label) {
+                statusText.setText(label);
+            }
+        };
+
         // ── Generate background grid texture (40px spacing, 2% opacity white) ──
         const bgCanvas = document.createElement('canvas');
         bgCanvas.width = 800;
@@ -35,6 +73,7 @@ export class BootScene extends Phaser.Scene {
         }
 
         this.textures.addCanvas('bg', bgCanvas);
+        updateProgress('BACKGROUND');
 
         // ── Generate brick texture (64×24 with neon glow) ──
         const brickCanvas = document.createElement('canvas');
@@ -44,6 +83,7 @@ export class BootScene extends Phaser.Scene {
         brickCtx.fillStyle = '#ffffff';
         brickCtx.fillRect(0, 0, 64, 24);
         this.textures.addCanvas('brick', brickCanvas);
+        updateProgress('BRICKS');
 
         // ── Generate ball texture (16×16 circle, white with blue tint) ──
         const ballCanvas = document.createElement('canvas');
@@ -59,6 +99,7 @@ export class BootScene extends Phaser.Scene {
         ballCtx.fillStyle = '#88aaff';
         ballCtx.fill();
         this.textures.addCanvas('ball', ballCanvas);
+        updateProgress('BALL');
 
         // ── Generate power-up texture (16×16 circle) ──
         const puCanvas = document.createElement('canvas');
@@ -73,6 +114,7 @@ export class BootScene extends Phaser.Scene {
         puCtx.lineWidth = 2;
         puCtx.stroke();
         this.textures.addCanvas('powerup', puCanvas);
+        updateProgress('POWER-UPS');
 
         // ── Generate particle texture (8×8 square) ──
         const partCanvas = document.createElement('canvas');
@@ -82,6 +124,7 @@ export class BootScene extends Phaser.Scene {
         partCtx.fillStyle = '#ffffff';
         partCtx.fillRect(0, 0, 8, 8);
         this.textures.addCanvas('particle', partCanvas);
+        updateProgress('PARTICLES');
 
         // ── Generate paddle texture (100×12 rectangle, solid color for default skin) ──
         const paddleCanvas = document.createElement('canvas');
@@ -91,6 +134,7 @@ export class BootScene extends Phaser.Scene {
         paddleCtx.fillStyle = '#00ccff';
         paddleCtx.fillRect(0, 0, 100, 12);
         this.textures.addCanvas('paddle', paddleCanvas);
+        updateProgress('PADDLE');
 
         // ── Generate heart texture for HUD ──
         const heartCanvas = document.createElement('canvas');
@@ -103,6 +147,14 @@ export class BootScene extends Phaser.Scene {
         heartCtx.textBaseline = 'middle';
         heartCtx.fillText('♥', 8, 8);
         this.textures.addCanvas('heart', heartCanvas);
+        updateProgress('HUD');
+
+        // ── Clean up loading UI ──────────────────────────────
+        bg.destroy();
+        barBg.destroy();
+        barFill.destroy();
+        statusText.destroy();
+        progressText.destroy();
     }
 
     create() {

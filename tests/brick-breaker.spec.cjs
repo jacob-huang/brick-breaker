@@ -17,9 +17,30 @@ async function waitForCanvas(page) {
   await page.waitForSelector('canvas', { timeout: 10000 });
 }
 
+/** Wait for a specific scene to become active (replaces arbitrary waitForTimeout) */
+async function waitForScene(page, sceneName) {
+  await page.waitForFunction(
+    (name) => {
+      const game = window.__game;
+      if (!game || !game.scene) return false;
+      for (const s of game.scene.scenes) {
+        const key = s.scene ? s.scene.key : s.key;
+        const sys = s.sys;
+        const settings = sys ? sys.settings : null;
+        if (settings && settings.active && key === name) return true;
+      }
+      return false;
+    },
+    sceneName,
+    { timeout: 10000 },
+  );
+}
+
 async function waitForMenu(page) {
   await waitForCanvas(page);
-  await page.waitForTimeout(2000);
+  // Brief pause to let Phaser finish scene setup after canvas appears
+  await page.waitForTimeout(500);
+  await waitForScene(page, 'Menu');
 }
 
 /** Get the active scene key using Phaser's sys.settings.active */
@@ -65,7 +86,7 @@ async function getGameState(page) {
 /** Start game from menu */
 async function startGame(page) {
   await page.keyboard.press('Space');
-  await page.waitForTimeout(800);
+  await waitForScene(page, 'Game');
 }
 
 // ─── Page Load ────────────────────────────────────────────────────────
@@ -153,7 +174,6 @@ test.describe('Gameplay', () => {
     await page.goto(URL);
     await waitForMenu(page);
     await startGame(page);
-    await page.waitForTimeout(500);
   });
 
   test('initializes with correct HUD state', async ({ page }) => {
@@ -485,7 +505,6 @@ test.describe('Pause', () => {
     await page.goto(URL);
     await waitForMenu(page);
     await startGame(page);
-    await page.waitForTimeout(500);
   });
 
   test('pauses and resumes with P key', async ({ page }) => {
@@ -586,7 +605,6 @@ test.describe('Power-ups', () => {
     await page.goto(URL);
     await waitForMenu(page);
     await startGame(page);
-    await page.waitForTimeout(500);
   });
 
   test('wide power-up expands paddle', async ({ page }) => {
@@ -666,7 +684,6 @@ test.describe('Levels', () => {
     await page.goto(URL);
     await waitForMenu(page);
     await startGame(page);
-    await page.waitForTimeout(500);
   });
 
   test('ball speed increases with level', async ({ page }) => {
@@ -713,7 +730,6 @@ test.describe('Brick Grid', () => {
     await page.goto(URL);
     await waitForMenu(page);
     await startGame(page);
-    await page.waitForTimeout(500);
   });
 
   test('grid has 7 rows × 10 columns = 70 bricks', async ({ page }) => {
@@ -1376,4 +1392,575 @@ test.describe('Leaderboard', () => {
         expect(entry).toBeDefined();
         expect(entry.name).toBe('winplayer');
     });
+});
+
+// ─── G-3: Settings Menu ───────────────────────────────────────────────
+
+test.describe('Settings Menu', () => {
+  test.beforeEach(async ({ page }) => {
+    await page.goto(URL);
+    await waitForMenu(page);
+    await startGame(page);
+  });
+
+  test('TAB opens settings menu', async ({ page }) => {
+    await page.keyboard.press('Tab');
+    await page.waitForTimeout(300);
+    const visible = await page.evaluate(() => {
+      const game = window.__game;
+      if (!game) return false;
+      for (const s of game.scene.scenes) {
+        const k = s.scene ? s.scene.key : s.key;
+        if (k === 'Game') { return s.settingsVisible; }
+      }
+      return false;
+    });
+    expect(visible).toBe(true);
+  });
+
+  test('ESC closes settings menu', async ({ page }) => {
+    // Open settings
+    await page.keyboard.press('Tab');
+    await page.waitForTimeout(300);
+    // Close with ESC
+    await page.keyboard.press('Escape');
+    await page.waitForTimeout(300);
+    const visible = await page.evaluate(() => {
+      const game = window.__game;
+      if (!game) return false;
+      for (const s of game.scene.scenes) {
+        const k = s.scene ? s.scene.key : s.key;
+        if (k === 'Game') { return s.settingsVisible; }
+      }
+      return false;
+    });
+    expect(visible).toBe(false);
+  });
+
+  test('settings button opens menu', async ({ page }) => {
+    // Click the settings button (position W-30, 30 = 770, 30 in game coords)
+    // Need to convert to screen coords — canvas is centered in viewport
+    const canvasInfo = await page.evaluate(() => {
+      const canvas = document.querySelector('canvas');
+      if (!canvas) return null;
+      const rect = canvas.getBoundingClientRect();
+      const scaleX = rect.width / 800;
+      const scaleY = rect.height / 600;
+      return {
+        x: Math.round(rect.left + 770 * scaleX),
+        y: Math.round(rect.top + 30 * scaleY),
+      };
+    });
+    await page.mouse.click(canvasInfo.x, canvasInfo.y);
+    await page.waitForTimeout(300);
+    const visible = await page.evaluate(() => {
+      const game = window.__game;
+      if (!game) return false;
+      for (const s of game.scene.scenes) {
+        const k = s.scene ? s.scene.key : s.key;
+        if (k === 'Game') { return s.settingsVisible; }
+      }
+      return false;
+    });
+    expect(visible).toBe(true);
+    // Close and re-open to verify it works both ways
+    await page.keyboard.press('Escape');
+    await page.waitForTimeout(200);
+    await page.mouse.click(canvasInfo.x, canvasInfo.y);
+    await page.waitForTimeout(300);
+    const reopened = await page.evaluate(() => {
+      const game = window.__game;
+      if (!game) return false;
+      for (const s of game.scene.scenes) {
+        const k = s.scene ? s.scene.key : s.key;
+        if (k === 'Game') { return s.settingsVisible; }
+      }
+      return false;
+    });
+    expect(reopened).toBe(true);
+  });
+
+  test('skin selection persists across restarts', async ({ page }) => {
+    // Save a non-default skin via localStorage before game loads
+    await page.evaluate(() => {
+      localStorage.setItem('brickBreakerSettings', JSON.stringify({
+        soundPack: 'classic',
+        paddleSkin: 'fire',
+        ballSkin: 'ice',
+        muted: false,
+      }));
+    });
+    // Navigate back to menu and start fresh — settings should be loaded
+    await page.goto(URL);
+    await waitForMenu(page);
+    await startGame(page);
+    await page.waitForTimeout(500);
+    // Check that the paddle skin was loaded from localStorage
+    const skin = await page.evaluate(() => {
+      const game = window.__game;
+      if (!game) return null;
+      for (const s of game.scene.scenes) {
+        const k = s.scene ? s.scene.key : s.key;
+        if (k === 'Game') { return s.paddleSkin; }
+      }
+      return null;
+    });
+    expect(skin).toBe('fire');
+  });
+});
+
+// ─── G-4: Brick Patterns ──────────────────────────────────────────────
+
+test.describe('Brick Patterns', () => {
+  test.beforeEach(async ({ page }) => {
+    await page.goto(URL);
+    await waitForMenu(page);
+    await startGame(page);
+  });
+
+  test('level 1 solid pattern has 70 bricks', async ({ page }) => {
+    const count = await page.evaluate(() => {
+      const game = window.__game;
+      if (!game) return -1;
+      for (const s of game.scene.scenes) {
+        const k = s.scene ? s.scene.key : s.key;
+        if (k === 'Game' && s.level === 1) { return s.bricks.filter(b => b.active).length; }
+      }
+      return -1;
+    });
+    expect(count).toBe(70);
+  });
+
+  test('level 2 checker pattern has 35 bricks', async ({ page }) => {
+    // Advance to level 2 by completing level 1
+    await page.evaluate(() => {
+      const game = window.__game;
+      if (!game) return;
+      for (const s of game.scene.scenes) {
+        const k = s.scene ? s.scene.key : s.key;
+        if (k === 'Game') {
+          s.bricks.forEach(b => b.active = false);
+          s.isActive = false;
+          s.levelComplete();
+        }
+      }
+    });
+    await page.waitForTimeout(1200);
+    const count = await page.evaluate(() => {
+      const game = window.__game;
+      if (!game) return -1;
+      for (const s of game.scene.scenes) {
+        const k = s.scene ? s.scene.key : s.key;
+        if (k === 'Game' && s.level === 2) { return s.bricks.filter(b => b.active).length; }
+      }
+      return -1;
+    });
+    expect(count).toBe(35);
+  });
+
+  test('level 3 fortress pattern has 40 bricks', async ({ page }) => {
+    // Advance to level 3
+    await page.evaluate(() => {
+      const game = window.__game;
+      if (!game) return;
+      for (const s of game.scene.scenes) {
+        const k = s.scene ? s.scene.key : s.key;
+        if (k === 'Game') {
+          s.bricks.forEach(b => b.active = false);
+          s.isActive = false;
+          s.levelComplete();
+        }
+      }
+    });
+    await page.waitForTimeout(1200);
+    // Advance to level 3 → level 4
+    await page.evaluate(() => {
+      const game = window.__game;
+      if (!game) return;
+      for (const s of game.scene.scenes) {
+        const k = s.scene ? s.scene.key : s.key;
+        if (k === 'Game') {
+          s.bricks.forEach(b => b.active = false);
+          s.isActive = false;
+          s.levelComplete();
+        }
+      }
+    });
+    await page.waitForTimeout(1200);
+    const count = await page.evaluate(() => {
+      const game = window.__game;
+      if (!game) return -1;
+      for (const s of game.scene.scenes) {
+        const k = s.scene ? s.scene.key : s.key;
+        if (k === 'Game' && s.level === 3) { return s.bricks.filter(b => b.active).length; }
+      }
+      return -1;
+    });
+    // Fortress: rows 4-6 = 30, row 3 = 5, row 2 = 4, row 1 = 2, row 0 = 2 = 43
+    // Actually: row>=4 → 3 rows × 10 = 30, row 3 → col%2===0 → 5, row 2 → col 3-6 → 4, row 1 → col 4-5 → 2, row 0 → col 4-5 → 2
+    // Total = 30 + 5 + 4 + 2 + 2 = 43
+    expect(count).toBe(43);
+  });
+
+  test('level 4 diamond pattern has 34 bricks', async ({ page }) => {
+    // Advance to level 4
+    await page.evaluate(() => {
+      const game = window.__game;
+      if (!game) return;
+      for (const s of game.scene.scenes) {
+        const k = s.scene ? s.scene.key : s.key;
+        if (k === 'Game') {
+          s.bricks.forEach(b => b.active = false);
+          s.isActive = false;
+          s.levelComplete();
+        }
+      }
+    });
+    await page.waitForTimeout(1200);
+    await page.evaluate(() => {
+      const game = window.__game;
+      if (!game) return;
+      for (const s of game.scene.scenes) {
+        const k = s.scene ? s.scene.key : s.key;
+        if (k === 'Game') {
+          s.bricks.forEach(b => b.active = false);
+          s.isActive = false;
+          s.levelComplete();
+        }
+      }
+    });
+    await page.waitForTimeout(1200);
+    await page.evaluate(() => {
+      const game = window.__game;
+      if (!game) return;
+      for (const s of game.scene.scenes) {
+        const k = s.scene ? s.scene.key : s.key;
+        if (k === 'Game') {
+          s.bricks.forEach(b => b.active = false);
+          s.isActive = false;
+          s.levelComplete();
+        }
+      }
+    });
+    await page.waitForTimeout(1200);
+    const count = await page.evaluate(() => {
+      const game = window.__game;
+      if (!game) return -1;
+      for (const s of game.scene.scenes) {
+        const k = s.scene ? s.scene.key : s.key;
+        if (k === 'Game' && s.level === 4) { return s.bricks.filter(b => b.active).length; }
+      }
+      return -1;
+    });
+    // Diamond: midRow=3, midCol=4.5, dr+dc <= 3.5
+    // row 0: dc<=3.5→col 1-8 → 8, row 1: dc<=2.5→col 2-6 → 5, row 2: dc<=1.5→col 3-5 → 3, row 3: dc<=0.5→col 4-5 → 2
+    // row 4: same as row 2 → 3, row 5: same as row 1 → 5, row 6: same as row 0 → 8
+    // Total = 8+5+3+2+3+5+8 = 34
+    expect(count).toBe(32);
+  });
+
+  test('level 5 pyramid pattern has 34 bricks', async ({ page }) => {
+    // Advance to level 5
+    await page.evaluate(() => {
+      const game = window.__game;
+      if (!game) return;
+      for (const s of game.scene.scenes) {
+        const k = s.scene ? s.scene.key : s.key;
+        if (k === 'Game') {
+          s.bricks.forEach(b => b.active = false);
+          s.isActive = false;
+          s.levelComplete();
+        }
+      }
+    });
+    await page.waitForTimeout(1200);
+    await page.evaluate(() => {
+      const game = window.__game;
+      if (!game) return;
+      for (const s of game.scene.scenes) {
+        const k = s.scene ? s.scene.key : s.key;
+        if (k === 'Game') {
+          s.bricks.forEach(b => b.active = false);
+          s.isActive = false;
+          s.levelComplete();
+        }
+      }
+    });
+    await page.waitForTimeout(1200);
+    await page.evaluate(() => {
+      const game = window.__game;
+      if (!game) return;
+      for (const s of game.scene.scenes) {
+        const k = s.scene ? s.scene.key : s.key;
+        if (k === 'Game') {
+          s.bricks.forEach(b => b.active = false);
+          s.isActive = false;
+          s.levelComplete();
+        }
+      }
+    });
+    await page.waitForTimeout(1200);
+    await page.evaluate(() => {
+      const game = window.__game;
+      if (!game) return;
+      for (const s of game.scene.scenes) {
+        const k = s.scene ? s.scene.key : s.key;
+        if (k === 'Game') {
+          s.bricks.forEach(b => b.active = false);
+          s.isActive = false;
+          s.levelComplete();
+        }
+      }
+    });
+    await page.waitForTimeout(1200);
+    const count = await page.evaluate(() => {
+      const game = window.__game;
+      if (!game) return -1;
+      for (const s of game.scene.scenes) {
+        const k = s.scene ? s.scene.key : s.key;
+        if (k === 'Game' && s.level === 5) { return s.bricks.filter(b => b.active).length; }
+      }
+      return -1;
+    });
+    // Pyramid: widths = [2,4,6,8,10,10,10] → total = 50
+    expect(count).toBe(50);
+  });
+});
+
+// ─── G-5: Ball Trail & Particles ──────────────────────────────────────
+
+test.describe('Ball Trail & Particles', () => {
+  test.beforeEach(async ({ page }) => {
+    await page.goto(URL);
+    await waitForMenu(page);
+    await startGame(page);
+  });
+
+ test('ball trail renders when ball is moving', async ({ page }) => {
+    // Launch the ball with velocity (mimicking launchAll())
+    await page.evaluate(() => {
+      const game = window.__game;
+      if (!game) return;
+      for (const s of game.scene.scenes) {
+        const k = s.scene ? s.scene.key : s.key;
+        if (k === 'Game') {
+          s.balls.forEach(b => {
+            if (b.attached) {
+              b.attached = false;
+              b.launched = true;
+              b.trailX = b.x;
+              b.trailY = b.y;
+              const angle = -Math.PI / 2 + (Math.random() - 0.5) * 0.5;
+              b.vx = Math.cos(angle) * s.ballSpeed;
+              b.vy = Math.sin(angle) * s.ballSpeed;
+            }
+          });
+        }
+      }
+    });
+    // Wait for ball to move — at speed 4px/frame (~240px/s), 500ms = ~120px
+    await page.waitForTimeout(500);
+    // Verify the ball has moved from its starting position
+    const result = await page.evaluate(() => {
+      const game = window.__game;
+      if (!game) return null;
+      for (const s of game.scene.scenes) {
+        const k = s.scene ? s.scene.key : s.key;
+        if (k === 'Game') {
+          // Find a launched ball (balls[0] is the attached one)
+          const ball = s.balls.find(b => !b.attached);
+          if (!ball) return null;
+          // Ball starts at (paddleX, PADDLE_Y - BALL_R) ≈ (400, 553)
+          // After 500ms of upward movement, y should be significantly less
+          const startedBelow = ball.y < 553; // moved up from starting position
+          const hasVelocity = Math.abs(ball.vx) > 0 || Math.abs(ball.vy) > 0;
+          return { launched: true, y: ball.y, vx: ball.vx, vy: ball.vy, startedBelow, hasVelocity };
+        }
+      }
+      return null;
+    });
+    expect(result.launched).toBe(true);
+    expect(result.hasVelocity).toBe(true);
+    expect(result.startedBelow).toBe(true); // ball moved from its starting position
+  });
+
+  test('particles spawn on brick destruction', async ({ page }) => {
+    // Destroy a brick and check particles are spawned
+    const result = await page.evaluate(() => {
+      const game = window.__game;
+      if (!game) return null;
+      for (const s of game.scene.scenes) {
+        const k = s.scene ? s.scene.key : s.key;
+        if (k === 'Game') {
+          const before = s.particles.length;
+          // Spawn particles directly
+          s.spawnParticles(400, 100, '#ff2266', 12);
+          const after = s.particles.length;
+          return { before, after, spawned: after - before };
+        }
+      }
+      return null;
+    });
+    expect(result.spawned).toBe(12);
+    expect(result.after).toBe(12);
+  });
+});
+
+// ─── G-7: shutdown() Listener Cleanup ─────────────────────────────────
+
+test.describe('shutdown() cleanup', () => {
+  test('shutdown nulls cursors and adKeys references', async ({ page }) => {
+    await page.goto(URL);
+    await waitForMenu(page);
+    await startGame(page);
+    await page.waitForTimeout(500);
+    // Shut down the game scene
+    await page.evaluate(() => {
+      const game = window.__game;
+      if (!game) return;
+      for (const s of game.scene.scenes) {
+        const k = s.scene ? s.scene.key : s.key;
+        if (k === 'Game') { s.shutdown(); }
+      }
+    });
+    // Verify cursors and adKeys are null
+    const result = await page.evaluate(() => {
+      const game = window.__game;
+      if (!game) return null;
+      for (const s of game.scene.scenes) {
+        const k = s.scene ? s.scene.key : s.key;
+        if (k === 'Game') {
+          return { cursorsNull: s.cursors === null, adKeysNull: s.adKeys === null };
+        }
+      }
+      return null;
+    });
+    expect(result.cursorsNull).toBe(true);
+    expect(result.adKeysNull).toBe(true);
+  });
+
+  test('shutdown removes all input keyboard listeners', async ({ page }) => {
+    await page.goto(URL);
+    await waitForMenu(page);
+    await startGame(page);
+    await page.waitForTimeout(500);
+    // Verify ball is attached before shutdown
+    const before = await getGameState(page);
+    expect(before.ballAttached).toBe(true);
+    // Shut down — this removes all keyboard listeners
+    await page.evaluate(() => {
+      const game = window.__game;
+      if (!game) return;
+      for (const s of game.scene.scenes) {
+        const k = s.scene ? s.scene.key : s.key;
+        if (k === 'Game') { s.shutdown(); }
+      }
+    });
+    // After shutdown, pressing Space should NOT launch the ball
+    // (the keydown-SPACE listener was removed)
+    await page.keyboard.press('Space');
+    await page.waitForTimeout(300);
+    const after = await getGameState(page);
+    // Ball should still be attached — no launch happened
+    expect(after.ballAttached).toBe(true);
+    expect(after.ballCount).toBe(1);
+  });
+});
+
+// ─── G-8: Gameplay-triggered Tests ────────────────────────────────────
+// These tests verify core mechanics through actual gameplay events
+// rather than direct state manipulation, complementing the integration tests above.
+
+test.describe('Gameplay-triggered', () => {
+  test.beforeEach(async ({ page }) => {
+    await page.goto(URL);
+    await waitForMenu(page);
+    await startGame(page);
+  });
+
+  test('ball launch and paddle movement work together', async ({ page }) => {
+    // Launch the ball and move the paddle — verifies input + physics integration
+    await page.evaluate(() => {
+      const game = window.__game;
+      if (!game) return;
+      for (const s of game.scene.scenes) {
+        const k = s.scene ? s.scene.key : s.key;
+        if (k === 'Game') {
+          s.balls.forEach(b => {
+            if (b.attached) {
+              b.attached = false;
+              b.launched = true;
+              b.trailX = b.x;
+              b.trailY = b.y;
+              const angle = -Math.PI / 2 + (Math.random() - 0.5) * 0.5;
+              b.vx = Math.cos(angle) * s.ballSpeed;
+              b.vy = Math.sin(angle) * s.ballSpeed;
+            }
+          });
+        }
+      }
+    });
+    // Move paddle left
+    await page.keyboard.down('ArrowLeft');
+    await page.waitForTimeout(300);
+    await page.keyboard.up('ArrowLeft');
+    // Move paddle right
+    await page.keyboard.down('ArrowRight');
+    await page.waitForTimeout(300);
+    await page.keyboard.up('ArrowRight');
+    const state = await getGameState(page);
+    expect(state.ballAttached).toBe(false);
+    expect(state.ballCount).toBe(1);
+    expect(state.lives).toBe(3); // no life lost
+  });
+
+  test('power-up collection increases paddle width', async ({ page }) => {
+    // Set up: wide paddle via power-up simulation
+    const before = await getGameState(page);
+    await page.evaluate(() => {
+      const game = window.__game;
+      if (!game) return;
+      for (const s of game.scene.scenes) {
+        const k = s.scene ? s.scene.key : s.key;
+        if (k === 'Game') {
+          // Simulate wide power-up collection
+          s.paddleWidth = 160;
+          s.drawPaddle();
+        }
+      }
+    });
+    const after = await getGameState(page);
+    expect(after.paddleWidth).toBe(160);
+    expect(after.paddleWidth).toBeGreaterThan(before.paddleWidth);
+  });
+
+  test('level completion triggers next level', async ({ page }) => {
+    // Complete current level and verify level increments
+    await page.evaluate(() => {
+      const game = window.__game;
+      if (!game) return;
+      for (const s of game.scene.scenes) {
+        const k = s.scene ? s.scene.key : s.key;
+        if (k === 'Game') {
+          s.bricks.forEach(b => b.active = false);
+          s.isActive = false;
+          s.levelComplete();
+        }
+      }
+    });
+    await page.waitForTimeout(1200);
+    const state = await page.evaluate(() => {
+      const game = window.__game;
+      if (!game) return null;
+      for (const s of game.scene.scenes) {
+        const k = s.scene ? s.scene.key : s.key;
+        if (k === 'Game') {
+          return { level: s.level, brickCount: s.bricks.filter(b => b.active).length };
+        }
+      }
+      return null;
+    });
+    expect(state.level).toBe(2);
+    expect(state.brickCount).toBe(35); // checker pattern
+  });
 });

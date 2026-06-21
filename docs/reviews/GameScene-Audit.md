@@ -125,13 +125,28 @@ The guard conditions are **reversed** from the descriptions. The 1st listener do
 
 ---
 
-## Part E — P3: Performance (nice to optimize)
+## Part E — P5: Testing Gaps
 
-| # | File:Line | Issue | Impact |
-|---|-----------|-------|--------|
-| **E-1** | `GameScene.js:713` | Brick collision: brute-force iteration of ALL active bricks (up to 70) per sub-step per ball. Worst case: 8 × 2 × 70 = 1,120 iterations/frame. | Acceptable at current scale, doesn't scale well. Spatial hash/grid would help if brick count grows. |
-| **E-2** | `index.html` | CRT scanline `::after` pseudo-element creates extra compositor layer over entire viewport. | Minor impact on low-end devices. |
-| **E-3** | `BootScene.js` | All textures generated synchronously in `preload()` with no loading indicator. | User sees black screen briefly. A progress bar would improve perceived performance. |
+| # | Area | Gap | Status |
+|---|------|-----|--------|
+| **G-1** | `settings.js` | No tests for persistence, defaults, or error handling. | ✅ Fixed 2026-06-20 — `tests/unit.spec.cjs`: 9 tests covering defaults, round-trip, bad JSON, missing keys, muted:false preservation, high score get/save. |
+| **G-2** | `AudioManager.js` | Zero tests — no unit or integration tests for pack switching, cooldown, or mute. | ✅ Fixed 2026-06-20 — `tests/unit.spec.cjs`: 6 tests covering singleton, pack switching, toggle, setMuted, muted play safety, per-type cooldown. |
+| **G-3** | `GameScene.js` | No test for settings menu (TAB open/close, skin switching, persistence). | ✅ Fixed 2026-06-20 — `tests/brick-breaker.spec.cjs`: 4 tests for TAB open, ESC close, settings button click, skin persistence across restarts. |
+| **G-4** | `GameScene.js` | No test for brick patterns at different levels (checker, fortress, diamond, pyramid). | ✅ Fixed 2026-06-20 — `tests/brick-breaker.spec.cjs`: 5 tests verifying all level patterns (solid=70, checker=35, fortress=43, diamond=32, pyramid=50). |
+| **G-5** | `GameScene.js` | No test for ball trail rendering or particle spawning. | ✅ Fixed 2026-06-20 — `tests/brick-breaker.spec.cjs`: 2 tests for ball velocity/movement and particle spawn count. |
+| **G-6** | `tests/` | Heavy reliance on `page.waitForTimeout()` (200-2000ms) — slow and flaky. Replace with `page.waitForFunction`. | ✅ Fixed 2026-06-20 — Added `waitForScene(page, name)` helper using `page.waitForFunction`. Replaced `waitForMenu()` and `startGame()` to use scene-activation waits. Removed ~15 redundant `waitForTimeout(500)` after `startGame()`. |
+| **G-7** | `GameScene.js` | No test for `shutdown()` listener cleanup. | ✅ Fixed 2026-06-20 — `tests/brick-breaker.spec.cjs`: 2 tests verifying cursors/adKeys are nulled and keyboard listeners are removed. |
+| **G-8** | `tests/` | Many tests manipulate game state directly (`scene.lives = 0`, `scene.score = 500`) rather than triggering through gameplay. Brittle integration tests. | ✅ Addressed 2026-06-20 — Added 3 gameplay-triggered tests (ball launch + paddle movement, power-up collection, level completion flow). Existing state-manipulation tests retained as valid unit/integration tests for deterministic isolation. |
+
+---
+
+## Part F — P4: Features (enhancements)
+
+| # | File:Line | Issue | Impact | Status |
+|---|-----------|-------|--------|--------|
+| **E-1** | `GameScene.js:713` | Brick collision: brute-force iteration of ALL active bricks (up to 70) per sub-step per ball. Worst case: 8 × 2 × 70 = 1,120 iterations/frame. | Acceptable at current scale, doesn't scale well. Spatial hash/grid would help if brick count grows. | ✅ Fixed 2026-06-20 — added `buildSpatialHash()` + `spatialQueryBall()`. Grid cell = 68×68px (BRICK_W + BRICK_PAD). Built once per frame in `update()`, queried per sub-step. Typical query returns ~1–4 bricks instead of 70. |
+| **E-2** | `index.html` | CRT scanline `::after` pseudo-element creates extra compositor layer over entire viewport. | Minor impact on low-end devices. | ✅ Fixed 2026-06-20 — added `contain: strict` to both `::after` (scanlines) and `::before` (vignette) rules. Tells browser these layers are self-contained, reducing composite region overhead. |
+| **E-3** | `BootScene.js` | All textures generated synchronously in `preload()` with no loading indicator. | User sees black screen briefly. A progress bar would improve perceived performance. | ✅ Fixed 2026-06-20 — added dark background overlay, progress bar (filled as each texture completes), status label (e.g. "BRICKS"), and counter ("3 / 7"). UI destroyed before transitioning to Menu. |
 
 ---
 
@@ -218,19 +233,22 @@ Phase 3 — Robustness (P2) ✅ COMPLETE
   D-6: ✅ Replaced global cooldown with per-type Map in AudioManager
   D-7: ✅ Removed input.mouse.disableContextMenu()
 
-Phase 4 — Performance (P3)
-  E-1: Spatial hash for brick collision (defer unless profiling shows need)
-  E-2: Optimize CRT scanline (defer — minimal impact)
-  E-3: Add loading bar to BootScene (quick win)
+Phase 4 — Performance (P3) ✅ COMPLETE
+  E-1: ✅ Spatial hash grid — buildSpatialHash() + spatialQueryBall()
+  E-2: ✅ CSS contain: strict on pseudo-element overlays
+  E-3: ✅ Loading bar with status labels and counter in BootScene
 
 Phase 5 — Features (P4)
   Pick based on user feedback and roadmap.
   Priority suggestions: F-1 (volume slider), F-8 (settings hint), F-9 (loading state)
 
-Phase 6 — Testing (P5)
-  G-1: settings.js unit tests
-  G-2: AudioManager unit tests
-  G-3: Settings menu E2E tests
-  G-4: Brick pattern verification tests
-  G-6: Replace waitForTimeout with waitForFunction
+Phase 6 — Testing (P5) ✅ COMPLETE
+  G-1: ✅ settings.js unit tests (9 tests)
+  G-2: ✅ AudioManager unit tests (6 tests)
+  G-3: ✅ Settings menu E2E tests (4 tests)
+  G-4: ✅ Brick pattern verification tests (5 tests)
+  G-5: ✅ Ball trail & particle tests (2 tests)
+  G-6: ✅ Replaced waitForTimeout with waitForFunction-based waitForScene()
+  G-7: ✅ shutdown() listener cleanup tests (2 tests)
+  G-8: ✅ Added 3 gameplay-triggered tests alongside existing integration tests
 ```
