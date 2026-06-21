@@ -2,46 +2,24 @@
  * MenuScene — Start screen with decorative bricks, title, instructions,
  * and blinking "PRESS SPACE TO START" prompt.
  */
+const DECO_ROWS = [
+    { y: 160, color: '#ff2266', count: 6 }, // Row 0: red-pink
+    { y: 188, color: '#ffdd00', count: 6 }, // Row 1: yellow
+    { y: 216, color: '#44dd44', count: 6 }, // Row 2: green
+];
+const BRICK_W = 64;
+const BRICK_H = 24;
+const BRICK_SPACING = 4;
+
 export class MenuScene extends Phaser.Scene {
     constructor() {
         super('Menu');
     }
 
     create() {
-        // ── Decorative brick rows (3 rows × 6 bricks) ──
-        const decoColors = ['#ff2266', '#ffdd00', '#44dd44'];
-        const brickW = 64;
-        const brickH = 24;
-        const spacing = 4;
-        const rowH = brickH + spacing;
-
-        for (let row = 0; row < 3; row++) {
-            const y = 160 + row * rowH;
-            const totalW = 6 * brickW + 5 * spacing;
-            const startX = (800 - totalW) / 2;
-
-            for (let col = 0; col < 6; col++) {
-                const x = startX + col * (brickW + spacing) + brickW / 2;
-                const gfx = this.add.graphics();
-                gfx.fillStyle(Phaser.Display.Color.HexStringToColor(decoColors[row]).color, 1);
-                gfx.fillRoundedRect(
-                    x - brickW / 2,
-                    y - brickH / 2,
-                    brickW,
-                    brickH,
-                    4
-                );
-                // Neon glow
-                gfx.lineStyle(1, Phaser.Display.Color.HexStringToColor(decoColors[row]).color, 0.6);
-                gfx.strokeRoundedRect(
-                    x - brickW / 2,
-                    y - brickH / 2,
-                    brickW,
-                    brickH,
-                    4
-                );
-            }
-        }
+        // ── Decorative brick rows (batched into single Graphics) ──
+        this.decoGfx = this.add.graphics();
+        this.drawDecoBricks();
 
         // ── Title ──
         this.add.text(400, 80, 'BRICK BREAKER', {
@@ -76,8 +54,15 @@ export class MenuScene extends Phaser.Scene {
             color: '#ffcc00',
         }).setOrigin(0.5);
 
-        this.blinkTimer = 0;
-        this.blinkInterval = 500;
+        // ── Tween-based blink (replaces manual delta accumulation) ──
+        this.tweens.add({
+            targets: this.startText,
+            alpha: 0,
+            duration: 500,
+            yoyo: true,
+            repeat: -1,
+            ease: 'Linear',
+        });
 
         // ── LEADERBOARD button ──
         this.leaderboardBtn = this.add.text(400, 460, 'LEADERBOARD', {
@@ -86,21 +71,50 @@ export class MenuScene extends Phaser.Scene {
             color: '#00ccff',
         }).setOrigin(0.5).setInteractive({ useHandCursor: true });
 
-        this.leaderboardBtn.on('pointerdown', () => this.showLeaderboard());
-        this.leaderboardBtn.on('pointerover', () => this.leaderboardBtn.setColor('#88eeff'));
+        // Touch feedback + navigation
+        this.leaderboardBtn.on('pointerdown', () => {
+            this.leaderboardBtn.setColor('#88eeff');
+            this.showLeaderboard();
+        });
+        this.leaderboardBtn.on('pointerup', () => this.leaderboardBtn.setColor('#00ccff'));
         this.leaderboardBtn.on('pointerout', () => this.leaderboardBtn.setColor('#00ccff'));
+        this.leaderboardBtn.on('pointerover', () => this.leaderboardBtn.setColor('#88eeff'));
 
         // ── Input ──
         this.input.keyboard.on('keydown-SPACE', () => this.startGame());
         this.input.on('pointerdown', () => this.startGame());
+
+        // Keyboard navigation for Leaderboard (Enter to toggle)
+        this.input.keyboard.on('keydown-ENTER', () => this.showLeaderboard());
     }
 
-    update(time, delta) {
-        // Blink effect
-        this.blinkTimer += delta;
-        if (this.blinkTimer >= this.blinkInterval) {
-            this.blinkTimer = 0;
-            this.startText.setVisible(!this.startText.visible);
+    drawDecoBricks() {
+        const totalW = 6 * BRICK_W + 5 * BRICK_SPACING;
+        const startX = (800 - totalW) / 2;
+
+        for (const row of DECO_ROWS) {
+            const c = Phaser.Display.Color.HexStringToColor(row.color);
+            for (let col = 0; col < row.count; col++) {
+                const x = startX + col * (BRICK_W + BRICK_SPACING) + BRICK_W / 2;
+                const y = row.y;
+                this.decoGfx.fillStyle(c.color, 1);
+                this.decoGfx.fillRoundedRect(
+                    x - BRICK_W / 2,
+                    y - BRICK_H / 2,
+                    BRICK_W,
+                    BRICK_H,
+                    4,
+                );
+                // Neon glow border
+                this.decoGfx.lineStyle(1, c.color, 0.6);
+                this.decoGfx.strokeRoundedRect(
+                    x - BRICK_W / 2,
+                    y - BRICK_H / 2,
+                    BRICK_W,
+                    BRICK_H,
+                    4,
+                );
+            }
         }
     }
 
@@ -116,5 +130,11 @@ export class MenuScene extends Phaser.Scene {
         this.time.delayedCall(300, () => {
             this.scene.start('Leaderboard');
         });
+    }
+
+    shutdown() {
+        this.input.keyboard.off('keydown-SPACE');
+        this.input.off('pointerdown');
+        this.input.keyboard.off('keydown-ENTER');
     }
 }
