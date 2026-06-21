@@ -8,6 +8,17 @@
       "paddle": "default",
       "ball": "default"
     },
-    "timestamp": "2026-06-20T21:19:26.045Z"
+    "timestamp": "2026-06-21T00:55:46.823Z"
+  },
+  {
+    "name": "jacob",
+    "score": 190,
+    "level": 1,
+    "pack": "classic",
+    "skins": {
+      "paddle": "default",
+      "ball": "rainbow"
+    },
+    "timestamp": "2026-06-21T01:08:25.868Z"
   }
 ]
