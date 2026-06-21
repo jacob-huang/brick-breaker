@@ -4,7 +4,7 @@
  * Entities are plain objects + Graphics rendering (no physics sprites).
  */
 import { AudioManager } from '../audio/AudioManager.js';
-import { loadSettings, saveSettings } from '../settings.js';
+import { loadSettings, saveSettings, getHighScore, saveHighScore } from '../settings.js';
 
 // ── Constants ──────────────────────────────────────────────────────────
 const W = 800;
@@ -32,7 +32,7 @@ const POWERUP_DURATION_MULTIBALL = 15000; // ms
 const COMBO_WINDOW = 2000; // ms
 const COMBO_FADE = 500; // ms before fade
 const PADDLE_COOLDOWN = 80; // ms
-const SUB_STEP_MAX = 4; // max sub-step to prevent tunneling
+const SUB_STEP_MAX_SIZE = 4; // max sub-step to prevent tunneling
 
 // Brick colors and points (top row = row 0)
 const BRICK_DEFS = [
@@ -82,7 +82,7 @@ export class GameScene extends Phaser.Scene {
         this.paddleCooldown = 0;
         this.audio = AudioManager.instance;
         this.ballSpeed = Math.min(BASE_SPEED + (this.level - 1) * SPEED_INCREMENT, MAX_SPEED);
-        this.highScore = this.getHighScore();
+        this.highScore = getHighScore();
 
         // ── Settings ──
         const settings = loadSettings();
@@ -145,17 +145,16 @@ export class GameScene extends Phaser.Scene {
         this.input.keyboard.on('keydown-SPACE', () => this.launchAll());
         this.input.keyboard.on('keydown-P', () => this.togglePause());
         this.input.keyboard.on('keydown-ESC', () => {
-            if (!this.settingsVisible) this.togglePause();
+            if (this.settingsVisible) {
+                this.toggleSettings();
+            } else {
+                this.togglePause();
+            }
         });
         this.input.keyboard.on('keydown-M', () => this.toggleMute());
         this.input.keyboard.on('keydown-TAB', (event) => {
             event.preventDefault();
             this.toggleSettings();
-        });
-        this.input.keyboard.on('keydown-ESC', () => {
-            if (this.settingsVisible) {
-                this.toggleSettings();
-            }
         });
         this.input.on('pointermove', (pointer) => {
             if (this.isActive) {
@@ -212,7 +211,9 @@ export class GameScene extends Phaser.Scene {
         this.muteText.on('pointerdown', () => this.toggleMute());
         this.muteText.on('pointerover', () => this.muteText.setAlpha(0.8));
         this.muteText.on('pointerout', () => this.muteText.setAlpha(1));
-        this.muted = false;
+        this.muted = this.settings.muted || false;
+        this.muteText.setText(this.muted ? '🔇' : '🔊');
+        this.audio.setMuted(this.muted);
 
         // ── Settings button ──
         this.settingsBtn = this.add.text(W - 30, 30, '⚙', {
@@ -226,22 +227,7 @@ export class GameScene extends Phaser.Scene {
     }
 
     // ── High Score ───────────────────────────────────────────────────
-    getHighScore() {
-        try { return parseInt(localStorage.getItem('brickBreakerHighScore') || '0', 10); }
-        catch { return 0; }
-    }
-
-    saveHighScore(score) {
-        try {
-            const current = this.getHighScore();
-            if (score > current) {
-                localStorage.setItem('brickBreakerHighScore', String(score));
-                this.highScore = score;
-                return true;
-            }
-        } catch { /* ignore */ }
-        return false;
-    }
+    // Delegated to settings.js — see getHighScore/saveHighScore there.
 
     updateHUD() {
         this.scoreText.setText(`SCORE: ${this.score}`);
@@ -518,6 +504,8 @@ export class GameScene extends Phaser.Scene {
     toggleMute() {
         this.muted = !this.audio.toggle();
         this.muteText.setText(this.muted ? '🔇' : '🔊');
+        this.settings.muted = this.muted;
+        saveSettings(this.settings);
     }
 
     // ── Settings ─────────────────────────────────────────────────────
@@ -658,7 +646,7 @@ export class GameScene extends Phaser.Scene {
             return;
         }
 
-        const steps = Math.ceil(Math.sqrt(ball.vx * ball.vx + ball.vy * ball.vy) / SUB_STEP_MAX);
+        const steps = Math.ceil(Math.sqrt(ball.vx * ball.vx + ball.vy * ball.vy) / SUB_STEP_MAX_SIZE);
         const svx = ball.vx / steps;
         const svy = ball.vy / steps;
 
@@ -756,11 +744,13 @@ export class GameScene extends Phaser.Scene {
         if (Math.abs(dx) > Math.abs(dy)) {
             // Hit left or right side — reflect horizontal
             ball.vx = -ball.vx;
-            ball.x += dx > 0 ? 1 : -1;
+            const push = BALL_R - Math.sqrt(dx * dx + dy * dy) + 1;
+            ball.x += dx > 0 ? push : -push;
         } else {
             // Hit top or bottom — reflect vertical
             ball.vy = -ball.vy;
-            ball.y += dy > 0 ? 1 : -1;
+            const push = BALL_R - Math.sqrt(dx * dx + dy * dy) + 1;
+            ball.y += dy > 0 ? push : -push;
         }
     }
 
@@ -891,9 +881,10 @@ export class GameScene extends Phaser.Scene {
     // ── Level complete / Game over ───────────────────────────────────
     levelComplete() {
         this.isActive = false;
-        this.saveHighScore(this.score);
+        if (saveHighScore(this.score)) this.highScore = this.score;
         this.audio.play('levelComplete');
         if (this.level >= TOTAL_LEVELS) {
+            this.cameras.main.fadeOut(500, 10, 10, 26);
             this.time.delayedCall(500, () => {
                 this.scene.start('Win', { score: this.score, highScore: this.highScore });
             });
@@ -903,9 +894,11 @@ export class GameScene extends Phaser.Scene {
             this.cameras.main.fadeOut(500, 10, 10, 26);
             this.time.delayedCall(500, () => {
                 // Reset state for next level
+                // Destroy orphaned particles before clearing the array (C-3)
+                this.particles.forEach(p => { if (p && !p.destroyed) p.destroy(); });
+                this.particles = [];
                 this.bricks = [];
                 this.powerups = [];
-                this.particles = [];
                 this.balls = [];
                 this.combo = 0;
                 this.comboActive = false;
@@ -926,8 +919,11 @@ export class GameScene extends Phaser.Scene {
 
     gameOver() {
         this.isActive = false;
-        this.saveHighScore(this.score);
+        if (saveHighScore(this.score)) this.highScore = this.score;
         this.audio.play('gameOver');
+        // Destroy orphaned particles before transition (C-3)
+        this.particles.forEach(p => { if (p && !p.destroyed) p.destroy(); });
+        this.particles = [];
         this.cameras.main.fadeOut(500, 10, 10, 26);
         this.time.delayedCall(500, () => {
             this.scene.start('GameOver', { score: this.score, level: this.level, highScore: this.highScore });
@@ -941,5 +937,8 @@ export class GameScene extends Phaser.Scene {
         this.input.keyboard.off('keydown-M');
         this.input.keyboard.off('keydown-TAB');
         this.input.off('pointermove');
+        // Clear keyboard key references (C-5)
+        this.cursors = null;
+        this.adKeys = null;
     }
 }

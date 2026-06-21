@@ -10,8 +10,8 @@ export class AudioManager {
     /** @type {AudioContext|null} */
     #ctx = null;
 
-    /** Last sound timestamp (ms) — enforces 40ms cooldown */
-    #lastTime = 0;
+    /** Per-type cooldown map — ensures each sound type has its own 40ms cooldown */
+    #lastPlayed = new Map();
 
     /** Whether sound is enabled */
     #enabled = true;
@@ -241,7 +241,17 @@ export class AudioManager {
     }
 
     /**
-     * Play a sound — rate-limited to 40ms cooldown.
+     * Set muted state directly.
+     * @param {boolean} muted
+     */
+    setMuted(muted) {
+        this.#enabled = !muted;
+    }
+
+    /**
+     * Play a sound — per-type rate-limited to 40ms cooldown.
+     * Each sound type (bounce, brick, etc.) has its own cooldown timer,
+     * so rapid brick destructions don't silently drop sounds.
      * @param {string} type — Sound type identifier
      */
     play(type) {
@@ -251,8 +261,9 @@ export class AudioManager {
         }
 
         const now = performance.now();
-        if (now - this.#lastTime < 40) return;
-        this.#lastTime = now;
+        const last = this.#lastPlayed.get(type) || 0;
+        if (now - last < 40) return;
+        this.#lastPlayed.set(type, now);
 
         this.#playSound(type);
     }

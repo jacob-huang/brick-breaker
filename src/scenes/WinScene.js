@@ -3,6 +3,7 @@
  * Registered as 'Win' scene key.
  */
 import { EndScreenScene } from './EndScreenScene.js';
+import { TOTAL_LEVELS } from '../constants.js';
 
 export class WinScene extends EndScreenScene {
     constructor() {
@@ -12,7 +13,7 @@ export class WinScene extends EndScreenScene {
     init(data) {
         super.init({
             ...data,
-            level: data.level || 5, // WinScene implies level 5 completed
+            level: data.level || TOTAL_LEVELS, // WinScene implies last level completed
             cfg: {
                 title: 'YOU WIN!',
                 titleColor: '#44dd44',

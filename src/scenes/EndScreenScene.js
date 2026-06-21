@@ -4,20 +4,12 @@
  * Config-driven: title, titleColor, showLevelReached, highScoreY
  * are set via init(cfg). Subclasses pass their config in super.init().
  */
+import { LeaderboardMixin, LeaderboardMixinUpdate, LeaderboardMixinShutdown } from './LeaderboardMixin.js';
+
 const API_URL = '/api/leaderboard';
-const TABLE_Y = 380;
-const TABLE_WIDTH = 385; // content(285)+spacing(40)=325 + padding(60) = 385, centered on 800px screen
-const TABLE_X = 208; // 400 - 385/2 = 207.5 → 208, table right = 593
-const TABLE_HEIGHT = 170; // header + 7 data rows, comfortable padding
-const ROW_HEIGHT = 20;
-const HEADER_Y = TABLE_Y + 5;
-const MAX_VISIBLE_ROWS = 8; // header + 7 visible, scrollable
 const FORM_Y = 545;
 const INPUT_WIDTH = 120;
 const INPUT_HEIGHT = 24;
-
-// Column left edges: rank=238, name=273, score=383, level=438, date=473
-const colX = [238, 273, 383, 438, 473]; // left edges: rank, name, score, level, date/time
 
 export class EndScreenScene extends Phaser.Scene {
     constructor(key) {
@@ -65,16 +57,24 @@ export class EndScreenScene extends Phaser.Scene {
             color: '#ff44aa',
         }).setOrigin(0.5);
 
-        // ── Leaderboard table ──
+        // ── Leaderboard table (via mixin) ──
         this.leaderboard = [];
         this.scrollY = 0;
         this.scrollSpeed = 0;
         this.tableBg = this.add.graphics();
-        this.drawTableBg();
-        this.headerTexts = [];
-        this.addHeader();
-        this.rowTexts = [];
-        this.addEmptyRows();
+        Object.assign(this, LeaderboardMixin({
+            tableY: 380,
+            tableWidth: 385,
+            tableX: 208,
+            tableHeight: 170,
+            rowHeight: 20,
+            maxVisibleRows: 8,
+            headerOffset: 5,
+            fontSize: '8px',
+        }));
+        this.drawTableBg(this);
+        this.addHeader(this);
+        this.addEmptyRows(this);
         this.fetchLeaderboard();
 
         // ── Submit form (shown when score qualifies) ──
@@ -110,60 +110,6 @@ export class EndScreenScene extends Phaser.Scene {
         });
     }
 
-    drawTableBg() {
-        this.tableBg.clear();
-        this.tableBg.fillStyle(0x000000, 0.5);
-        this.tableBg.fillRect(TABLE_X, TABLE_Y - 10, TABLE_WIDTH, TABLE_HEIGHT + 20);
-        this.tableBg.lineStyle(2, 0x00ccff, 0.6);
-        this.tableBg.strokeRect(TABLE_X, TABLE_Y - 10, TABLE_WIDTH, TABLE_HEIGHT + 20);
-    }
-
-    addHeader() {
-        this.headerTexts = [];
-        const headers = ['#', 'USER', 'SCORE', 'LVL', 'DATE & TIME'];
-        for (let i = 0; i < headers.length; i++) {
-            const text = this.add.text(colX[i], HEADER_Y, headers[i], {
-                fontFamily: '"Press Start 2P", monospace',
-                fontSize: '8px',
-                color: '#888888',
-            }).setOrigin(0, 0.5);
-            this.headerTexts.push(text);
-        }
-    }
-
-    addEmptyRows() {
-        this.rowTexts = [];
-        for (let i = 0; i < MAX_VISIBLE_ROWS; i++) {
-            this.rowTexts[i] = [
-                this.add.text(colX[0], TABLE_Y + 15 + i * ROW_HEIGHT, '', {
-                    fontFamily: '"Press Start 2P", monospace',
-                    fontSize: '8px',
-                    color: '#cccccc',
-                }).setOrigin(0, 0.5),
-                this.add.text(colX[1], TABLE_Y + 15 + i * ROW_HEIGHT, '', {
-                    fontFamily: '"Press Start 2P", monospace',
-                    fontSize: '8px',
-                    color: '#cccccc',
-                }).setOrigin(0, 0.5),
-                this.add.text(colX[2], TABLE_Y + 15 + i * ROW_HEIGHT, '', {
-                    fontFamily: '"Press Start 2P", monospace',
-                    fontSize: '8px',
-                    color: '#ffcc00',
-                }).setOrigin(0, 0.5),
-                this.add.text(colX[3], TABLE_Y + 15 + i * ROW_HEIGHT, '', {
-                    fontFamily: '"Press Start 2P", monospace',
-                    fontSize: '8px',
-                    color: '#cccccc',
-                }).setOrigin(0, 0.5),
-                this.add.text(colX[4], TABLE_Y + 15 + i * ROW_HEIGHT, '', {
-                    fontFamily: '"Press Start 2P", monospace',
-                    fontSize: '8px',
-                    color: '#888888',
-                }).setOrigin(0, 0.5),
-            ];
-        }
-    }
-
     async fetchLeaderboard() {
         try {
             const res = await fetch(API_URL);
@@ -172,45 +118,10 @@ export class EndScreenScene extends Phaser.Scene {
         } catch {
             this.leaderboard = [];
         }
-        this.renderRows();
+        this.renderRows(this);
         if (this.submitFormVisible) {
             this.maybeShowSubmitForm();
         }
-    }
-
-    renderRows() {
-        for (let i = 0; i < MAX_VISIBLE_ROWS; i++) {
-            this.rowTexts[i][0].setText('');
-            this.rowTexts[i][1].setText('');
-            this.rowTexts[i][2].setText('');
-            this.rowTexts[i][3].setText('');
-            this.rowTexts[i][4].setText('');
-        }
-
-        if (this.leaderboard.length === 0) {
-            this.rowTexts[0][1].setText('NO SCORES YET');
-            this.rowTexts[0][1].setColor('#666666');
-            return;
-        }
-
-        const visibleCount = Math.min(this.leaderboard.length, MAX_VISIBLE_ROWS - 1);
-        for (let i = 0; i < visibleCount; i++) {
-            const entry = this.leaderboard[i];
-            this.rowTexts[i][0].setText(`#${i + 1}`);
-            this.rowTexts[i][1].setText(entry.name);
-            this.rowTexts[i][2].setText(entry.score.toString());
-            this.rowTexts[i][3].setText(String(entry.level || '-'));
-            this.rowTexts[i][4].setText(this.formatDate(entry.timestamp));
-        }
-    }
-
-    formatDate(isoString) {
-        const d = new Date(isoString);
-        const dd = String(d.getDate()).padStart(2, '0');
-        const mm = String(d.getMonth() + 1).padStart(2, '0');
-        const hh = String(d.getHours()).padStart(2, '0');
-        const mi = String(d.getMinutes()).padStart(2, '0');
-        return `${dd}/${mm} ${hh}:${mi}`;
     }
 
     maybeShowSubmitForm() {
@@ -390,34 +301,8 @@ export class EndScreenScene extends Phaser.Scene {
             this.restartText.setVisible(!this.restartText.visible);
         }
 
-        // Inertia scroll
-        this.scrollSpeed *= 0.92;
-        if (Math.abs(this.scrollSpeed) < 0.1) this.scrollSpeed = 0;
-        this.scrollY += this.scrollSpeed * delta * 0.05;
-
-        // Clamp scroll
-        const maxScroll = Math.max(0, this.leaderboard.length - (MAX_VISIBLE_ROWS - 1)) * ROW_HEIGHT;
-        this.scrollY = Phaser.Math.Clamp(this.scrollY, 0, maxScroll);
-
-        // Apply scroll to row texts
-        for (let i = 0; i < MAX_VISIBLE_ROWS; i++) {
-            const baseY = TABLE_Y + 15 - this.scrollY + i * ROW_HEIGHT;
-            for (let j = 0; j < 5; j++) {
-                this.rowTexts[i][j].setPosition(
-                    this.rowTexts[i][j].x,
-                    baseY
-                );
-            }
-        }
-
-        // Hide rows scrolled out of view
-        for (let i = 0; i < MAX_VISIBLE_ROWS; i++) {
-            const baseY = TABLE_Y + 15 - this.scrollY + i * ROW_HEIGHT;
-            const visible = baseY >= TABLE_Y - 5 && baseY <= TABLE_Y + TABLE_HEIGHT + 5;
-            for (let j = 0; j < 5; j++) {
-                this.rowTexts[i][j].setVisible(visible);
-            }
-        }
+        // Leaderboard scroll (via mixin)
+        LeaderboardMixinUpdate(this, time, delta);
 
         // Cursor blink for submit form
         if (this.submitFormVisible && this.submitState === 'idle' && this.submitInputText) {
@@ -443,6 +328,17 @@ export class EndScreenScene extends Phaser.Scene {
         if (this._submitKeyHandler) {
             this.input.keyboard.off('keydown', this._submitKeyHandler);
             this._submitKeyHandler = null;
+        }
+        // Destroy empty row texts (C-4) to prevent memory leak
+        if (this.rowTexts) {
+            this.rowTexts.forEach(row => {
+                row.forEach(t => { if (t && !t.destroyed) t.destroy(); });
+            });
+            this.rowTexts = null;
+        }
+        if (this.headerTexts) {
+            this.headerTexts.forEach(t => { if (t && !t.destroyed) t.destroy(); });
+            this.headerTexts = null;
         }
     }
 }
